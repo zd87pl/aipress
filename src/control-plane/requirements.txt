@@ -1,0 +1,4 @@
+fastapi>=0.100.0 # Use a recent version
+uvicorn[standard]>=0.20.0 # For running the server locally
+pydantic>=2.0.0
+# Add other dependencies as needed, e.g., google-cloud-secret-manager if accessing secrets directly
