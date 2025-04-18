@@ -133,6 +133,8 @@ async def create_site_poc(tenant_id: str):
         "terraform",
         "apply",
         "-auto-approve",
+        # No longer need -target as this config only contains the module now
+        # "-target=module.tenant_wordpress_instance", 
         f"-var=gcp_project_id={GCP_PROJECT_ID}",
         f"-var=gcp_region={GCP_REGION}",
         f"-var=wp_docker_image_url={WP_DOCKER_IMAGE_URL}",
