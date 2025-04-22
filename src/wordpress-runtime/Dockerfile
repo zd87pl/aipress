@@ -49,22 +49,11 @@ COPY src/wordpress-runtime/nginx/wordpress.conf /etc/nginx/conf.d/default.conf
 # Configure Supervisord
 COPY src/wordpress-runtime/supervisor/supervisord.conf /etc/supervisor/supervisor.conf
 
+# Download and extract WordPress - REMOVED - Base image already contains WP files
+
 # Configure fuse
 # Allow non-root users to specify the allow_other mount option.
 RUN echo "user_allow_other" >> /etc/fuse.conf || true # Allow failure if file doesn't exist initially
-# Ensure fuse group exists and www-data is part of it (needed for allow_other) - Removed as gcsfuse runs as root now
-# RUN set -eux; \
-#     echo "Ensuring 'fuse' group exists and 'www-data' is a member..."; \
-#     # Check if group exists, create if not
-#     if ! getent group fuse > /dev/null; then \
-#         echo "Creating system group 'fuse'..."; \
-#         addgroup --system fuse; \
-#     else \
-#         echo "Group 'fuse' already exists."; \
-#     fi; \
-#     # Add user to group (adduser is idempotent if user already in group)
-#     echo "Adding user 'www-data' to group 'fuse'..."; \
-#     adduser www-data fuse
 
 # Setup directories and permissions
 # Base image sets up /var/www/html, ensure wp-content exists and is writable by www-data
