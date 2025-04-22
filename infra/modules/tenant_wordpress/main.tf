@@ -14,12 +14,10 @@ resource "google_secret_manager_secret" "db_password_secret" {
     "aipress-tenant-id" = var.tenant_id # Label the secret itself
   }
 
-  # Correct syntax based on consistent validation errors
   replication {
     auto {}
   }
 
-  # Ensure random password is created first (usually implicit, but can be explicit)
   depends_on = [random_password.db_password]
 }
 
@@ -36,36 +34,17 @@ resource "google_secret_manager_secret_iam_member" "wp_runtime_secret_access" {
   member    = "serviceAccount:${var.wp_runtime_sa_email}"
 }
 
-# --- GCS Bucket for wp-content ---
-resource "google_storage_bucket" "wp_content" {
-  project       = var.gcp_project_id
-  name          = "aipress-tenant-${var.tenant_id}-wp-content" # Ensure globally unique naming convention
-  location      = var.gcp_region
-  force_destroy = true # WARNING: Only for PoC/dev, remove for production
+# --- GCS Bucket for wp-content - REMOVED ---
+# resource "google_storage_bucket" "wp_content" { ... }
 
-  uniform_bucket_level_access = true
-
-  labels = {
-    "aipress-tenant-id" = var.tenant_id # Label the bucket
-  }
-
-  # Add lifecycle rules, versioning etc. for production later
-}
-
-# Grant the WP Runtime SA access to THIS specific bucket
-resource "google_storage_bucket_iam_member" "wp_runtime_bucket_access" {
-  bucket = google_storage_bucket.wp_content.name
-  role   = "roles/storage.objectAdmin" # Allows read, write, delete within the bucket
-  member = "serviceAccount:${var.wp_runtime_sa_email}"
-}
+# Grant the WP Runtime SA access to THIS specific bucket - REMOVED ---
+# resource "google_storage_bucket_iam_member" "wp_runtime_bucket_access" { ... }
 
 # --- Cloud SQL Database & User ---
 resource "google_sql_database" "tenant_db" {
   project  = var.gcp_project_id
   instance = var.shared_sql_instance_name
   name     = replace("aipress_tenant_${var.tenant_id}", "-", "_") # Ensure valid DB name format (e.g., no hyphens)
-
-  # No labels on database resource itself, inherits instance labels if needed for filtering costs
 }
 
 resource "google_sql_user" "tenant_db_user" {
@@ -96,9 +75,9 @@ resource "google_cloud_run_v2_service" "wordpress" {
     # Consolidated containers block
     containers {
       image = var.wp_docker_image_url
-      ports { container_port = 8080 } # Assuming container listens on 8080
+      ports { container_port = 8080 }
 
-      # Standard WP Env Vars + GCS Bucket Name
+      # Standard WP Env Vars
       env {
         name  = "WORDPRESS_DB_HOST"
         value = "/cloudsql/${var.gcp_project_id}:${var.gcp_region}:${var.shared_sql_instance_name}"
@@ -116,22 +95,22 @@ resource "google_cloud_run_v2_service" "wordpress" {
         value_source {
           secret_key_ref {
             secret  = google_secret_manager_secret.db_password_secret.secret_id
-            version = "latest" # Use latest version of the password secret
+            version = "latest"
           }
         }
       }
-      env {
-        name  = "GCS_BUCKET_NAME"
-        value = google_storage_bucket.wp_content.name
-      }
-      # TODO: Add other necessary WP env vars (salts - ideally from secrets, table prefix, etc.)
+      # GCS_BUCKET_NAME Env Var - REMOVED
+      # env {
+      #   name  = "GCS_BUCKET_NAME"
+      #   value = google_storage_bucket.wp_content.name
+      # }
+      # TODO: Add env vars for WP Offload Media plugin if needed
       
       # Add volume mount within the same containers block
       volume_mounts {
         name       = "cloudsql"
         mount_path = "/cloudsql"
       }
-      # Add resource limits if needed
       # resources {
       #   limits = {
       #     cpu    = "1000m"
@@ -140,32 +119,25 @@ resource "google_cloud_run_v2_service" "wordpress" {
       # }
     } # End of single containers block
 
-    # Mount the Cloud SQL connection (Volume definition is separate from container mount)
+    # Mount the Cloud SQL connection
     volumes {
       name = "cloudsql"
       cloud_sql_instance {
         instances = ["${var.gcp_project_id}:${var.gcp_region}:${var.shared_sql_instance_name}"]
       }
     }
-
-    # TODO: Add VPC Access Connector if using Private IP for Cloud SQL
-    # vpc_access {
-    #   connector = "your-vpc-connector-id"
-    #   egress    = "all-traffic" # Or "private-ranges-only"
-    # }
   } # End of template block
 
   # depends_on block is a direct argument of the resource
   depends_on = [
     google_secret_manager_secret_iam_member.wp_runtime_secret_access,
-    google_storage_bucket_iam_member.wp_runtime_bucket_access,
+    # google_storage_bucket_iam_member.wp_runtime_bucket_access, # REMOVED
     google_sql_user.tenant_db_user # Ensure DB user is created before service starts
   ]
 
 } # End of google_cloud_run_v2_service resource
 
 # Allow unauthenticated access to the WordPress service (for PoC)
-# WARNING: Remove this for production and use authenticated access (e.g., IAP)
 resource "google_cloud_run_service_iam_binding" "wordpress_public_access" {
   project  = google_cloud_run_v2_service.wordpress.project
   location = google_cloud_run_v2_service.wordpress.location
@@ -175,16 +147,3 @@ resource "google_cloud_run_service_iam_binding" "wordpress_public_access" {
     "allUsers",
   ]
 } # End of google_cloud_run_service_iam_binding resource
-
-
-# Placeholder for Random Salts (if not using secrets)
-/*
-resource "random_string" "auth_key" { length = 64 }
-resource "random_string" "secure_auth_key" { length = 64 }
-resource "random_string" "logged_in_key" { length = 64 }
-resource "random_string" "nonce_key" { length = 64 }
-resource "random_string" "auth_salt" { length = 64 }
-resource "random_string" "secure_auth_salt" { length = 64 }
-resource "random_string" "logged_in_salt" { length = 64 }
-resource "random_string" "nonce_salt" { length = 64 }
-*/
