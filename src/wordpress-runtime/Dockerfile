@@ -10,12 +10,10 @@ LABEL description="Stateless WordPress runtime with Nginx, PHP-FPM, and gcsfuse 
 # Set DEBIAN_FRONTEND to noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install necessary additional packages: nginx, supervisor, fuse3, tini, and gcsfuse dependencies
+# Install necessary additional packages: nginx, fuse3, and gcsfuse dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
         nginx \
-        supervisor \
         fuse3 \
-        tini \
         lsb-release \
         curl \
         gnupg \
@@ -41,15 +39,15 @@ RUN set -eux; \
 
 # NOTE: WordPress core and PHP extensions (gd, mysqli, zip, opcache) are already included in the base image.
 
+# Copy custom PHP-FPM pool configuration
+COPY src/wordpress-runtime/php-fpm/www.conf /usr/local/etc/php-fpm.d/www.conf
+
 # Configure Nginx (Base image might have its own, but we override)
 # Paths are relative to the build context (project root)
 COPY src/wordpress-runtime/nginx/nginx.conf /etc/nginx/nginx.conf
 COPY src/wordpress-runtime/nginx/wordpress.conf /etc/nginx/conf.d/default.conf
 
-# Configure Supervisord
-COPY src/wordpress-runtime/supervisor/supervisord.conf /etc/supervisor/supervisor.conf
-
-# Download and extract WordPress - REMOVED - Base image already contains WP files
+# Configure Supervisord - REMOVED
 
 # Configure fuse
 # Allow non-root users to specify the allow_other mount option.
@@ -57,31 +55,24 @@ RUN echo "user_allow_other" >> /etc/fuse.conf || true # Allow failure if file do
 
 # Setup directories and permissions
 # Base image sets up /var/www/html, ensure wp-content exists and is writable by www-data
-# Ensure /var/run exists for nginx pid
-RUN mkdir -p /var/www/html/wp-content /var/run && \
+# Ensure /var/run exists for nginx pid and create log dir for php-fpm
+RUN mkdir -p /var/www/html/wp-content /var/run /var/log/php-fpm && \
     chown -R www-data:www-data /var/www/html/wp-content && \
-    chown www-data:www-data /var/run
+    chown www-data:www-data /var/run /var/log/php-fpm
 
 # Copy entrypoint script
 COPY src/wordpress-runtime/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # NOTE: Base image entrypoint is overridden below. We run our entrypoint as root.
-# USER www-data # Keep removed
-
-# Define WordPress volume (though managed by gcsfuse)
 VOLUME /var/www/html/wp-content
+EXPOSE 8080
 
-# Healthcheck (Uses base image's Nginx which listens on 80 by default, adjust if needed or rely on Cloud Run's check)
-# Let's use our Nginx config which listens on 8080
+# Healthcheck (Optional but recommended)
 HEALTHCHECK --interval=10s --timeout=3s --start-period=30s --retries=3 \
   CMD curl --fail http://127.0.0.1:8080/wp-includes/images/blank.gif || exit 1
 
-# Expose Nginx port
-EXPOSE 8080
+# Use our custom entrypoint script
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 
-# Use tini as the init system and run our entrypoint script
-ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/entrypoint.sh"]
-
-# Default command executed by our entrypoint.sh
-CMD ["/usr/bin/supervisord", "-n", "-c", "/etc/supervisor/supervisor.conf"]
+# CMD is inherited from the base image (php-fpm)
