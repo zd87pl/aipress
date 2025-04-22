@@ -5,74 +5,72 @@ ARG PHP_VERSION=8.2
 FROM wordpress:${WORDPRESS_VERSION}-php${PHP_VERSION}-fpm
 
 LABEL maintainer="AIPress PoC"
-LABEL description="Stateless WordPress runtime with Nginx, PHP-FPM, and gcsfuse (Official WP Debian based)"
+LABEL description="Stateless WordPress runtime with Nginx, PHP-FPM (TESTING - No gcsfuse)"
 
 # Set DEBIAN_FRONTEND to noninteractive
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install necessary additional packages: nginx, fuse3, and gcsfuse dependencies
+# Install necessary additional packages: nginx, supervisor
+# Removing fuse3, lsb-release, curl, gnupg for this test
 RUN apt-get update && apt-get install -y --no-install-recommends \
         nginx \
-        fuse3 \
-        lsb-release \
-        curl \
-        gnupg \
+        supervisor \
     # Clean up apt lists
     && rm -rf /var/lib/apt/lists/*
 
-# Install gcsfuse using Google's recommended APT method for Debian/Ubuntu
-# See: https://cloud.google.com/storage/docs/gcsfuse/install#linux-install
-RUN set -eux; \
-    export GCSFUSE_REPO=gcsfuse-`lsb_release -cs`; \
-    # Add Google's APT repository
-    echo "deb [signed-by=/usr/share/keyrings/google-cloud.gpg] https://packages.cloud.google.com/apt $GCSFUSE_REPO main" > /etc/apt/sources.list.d/gcsfuse.list; \
-    # Import Google Cloud public key
-    curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/google-cloud.gpg; \
-    chmod a+r /usr/share/keyrings/google-cloud.gpg; \
-    # Update package list and install gcsfuse
-    apt-get update; \
-    apt-get install -y --no-install-recommends gcsfuse; \
-    # Verify installation
-    gcsfuse --version; \
-    # Clean up apt lists
-    rm -rf /var/lib/apt/lists/*
+# Install gcsfuse - COMMENTED OUT FOR TESTING
+# RUN set -eux; \
+#     export GCSFUSE_REPO=gcsfuse-`lsb_release -cs`; \
+#     # Add Google's APT repository
+#     echo "deb [signed-by=/usr/share/keyrings/google-cloud.gpg] https://packages.cloud.google.com/apt $GCSFUSE_REPO main" > /etc/apt/sources.list.d/gcsfuse.list; \
+#     # Import Google Cloud public key
+#     curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/google-cloud.gpg; \
+#     chmod a+r /usr/share/keyrings/google-cloud.gpg; \
+#     # Update package list and install gcsfuse
+#     apt-get update; \
+#     apt-get install -y --no-install-recommends gcsfuse; \
+#     # Verify installation
+#     gcsfuse --version; \
+#     # Clean up apt lists
+#     rm -rf /var/lib/apt/lists/*
 
-# NOTE: WordPress core and PHP extensions (gd, mysqli, zip, opcache) are already included in the base image.
+# NOTE: WordPress core and PHP extensions are already included in the base image.
 
-# Copy custom PHP-FPM pool configuration
+# Copy custom PHP-FPM pool configuration (Sets log path)
 COPY src/wordpress-runtime/php-fpm/www.conf /usr/local/etc/php-fpm.d/www.conf
 
-# Configure Nginx (Base image might have its own, but we override)
-# Paths are relative to the build context (project root)
+# Configure Nginx 
 COPY src/wordpress-runtime/nginx/nginx.conf /etc/nginx/nginx.conf
 COPY src/wordpress-runtime/nginx/wordpress.conf /etc/nginx/conf.d/default.conf
 
-# Configure Supervisord - REMOVED
+# Configure Supervisord
+COPY src/wordpress-runtime/supervisor/supervisord.conf /etc/supervisor/supervisor.conf
 
-# Configure fuse
-# Allow non-root users to specify the allow_other mount option.
-RUN echo "user_allow_other" >> /etc/fuse.conf || true # Allow failure if file doesn't exist initially
+# Configure fuse - COMMENTED OUT FOR TESTING
+# RUN echo "user_allow_other" >> /etc/fuse.conf || true 
+
+# Add a simple index.php for testing Nginx/PHP-FPM
+RUN echo "<?php phpinfo(); ?>" > /var/www/html/index.php \
+    && chown www-data:www-data /var/www/html/index.php
 
 # Setup directories and permissions
-# Base image sets up /var/www/html, ensure wp-content exists and is writable by www-data
-# Ensure /var/run exists for nginx pid and create log dir for php-fpm
-RUN mkdir -p /var/www/html/wp-content /var/run /var/log/php-fpm && \
-    chown -R www-data:www-data /var/www/html/wp-content && \
-    chown www-data:www-data /var/run /var/log/php-fpm
+# Ensure necessary directories exist and have correct ownership
+# /var/run for nginx pid, /var/log/php-fpm for logs, /run/php for socket
+# No need to chown wp-content as it's not mounted/used in this test
+RUN mkdir -p /var/run /var/log/php-fpm /run/php && \
+    chown www-data:www-data /var/run /var/log/php-fpm /run/php
 
-# Copy entrypoint script
+# Copy entrypoint script (Might be empty, but still needed by ENTRYPOINT)
 COPY src/wordpress-runtime/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
-# NOTE: Base image entrypoint is overridden below. We run our entrypoint as root.
-VOLUME /var/www/html/wp-content
+# VOLUME /var/www/html/wp-content # Not needed for this test
 EXPOSE 8080
 
-# Healthcheck (Optional but recommended)
+# Healthcheck - Should work if phpinfo page is served
 HEALTHCHECK --interval=10s --timeout=3s --start-period=30s --retries=3 \
-  CMD curl --fail http://127.0.0.1:8080/wp-includes/images/blank.gif || exit 1
+  CMD curl --fail http://127.0.0.1:8080/index.php || exit 1
 
-# Use our custom entrypoint script
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+# Use Supervisord as the entrypoint (to start nginx, php-fpm)
 
-# CMD is inherited from the base image (php-fpm)
+# CMD is not needed when ENTRYPOINT is supervisord

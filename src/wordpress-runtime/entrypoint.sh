@@ -1,15 +1,14 @@
 #!/bin/bash
 set -eo pipefail
 
-echo "[Entrypoint] Starting script..."
+echo "[Entrypoint] Starting script (No Supervisord)..."
 
 # --- Configuration ---
 GCS_BUCKET="${GCS_BUCKET_NAME:-}" 
 WP_CONTENT_DIR="/var/www/html/wp-content"
 WP_UID=$(id -u www-data)
 WP_GID=$(id -g www-data)
-# Use -o flags again, including allow_other, as running as root bypasses some permission issues
-# Remove debug flags for now unless needed
+# Using -o flags, including allow_other. Remove debug flags unless needed.
 GCSFUSE_OPTS="-o allow_other --implicit-dirs --uid ${WP_UID} --gid ${WP_GID} --file-mode 664 --dir-mode 775 --rename-dir-limit=1000" 
 
 # --- Validation ---
@@ -25,11 +24,16 @@ if ! command -v nginx &> /dev/null; then
     echo "[Entrypoint] FATAL: nginx command not found." >&2
     exit 1
 fi
+# Check for php-fpm command (should be inherited via CMD)
+if ! command -v php-fpm &> /dev/null; then
+    echo "[Entrypoint] FATAL: php-fpm command not found (should be CMD)." >&2
+    exit 1
+fi
 
 # --- Mount GCS Bucket in Background ---
 echo "[Entrypoint] Mounting GCS bucket in background: ${GCS_BUCKET} to ${WP_CONTENT_DIR}"
-# Run gcsfuse as root in the background
-/usr/bin/gcsfuse ${GCSFUSE_OPTS} "${GCS_BUCKET}" "${WP_CONTENT_DIR}" &
+# Run gcsfuse as root in the background. Log output to help debug if needed.
+/usr/bin/gcsfuse ${GCSFUSE_OPTS} "${GCS_BUCKET}" "${WP_CONTENT_DIR}" --log-file /dev/stdout --log-format json &
 GCSFUSE_PID=$!
 echo "[Entrypoint] gcsfuse process started with PID $GCSFUSE_PID"
 # Give gcsfuse a moment to mount and check
