@@ -23,9 +23,10 @@ echo "Docker authentication configured."
 echo "---"
 
 # --- Build the Docker Image ---
-echo "Building Docker image: ${IMAGE_URL}"
+echo "Building Docker image for linux/amd64: ${IMAGE_URL}"
 # Run build from project root so Docker context is correct for COPY commands
-docker build -t "${IMAGE_URL}" -f "${PROJECT_ROOT}/src/wordpress-runtime/Dockerfile" "${PROJECT_ROOT}"
+# Explicitly specify the target platform for Cloud Run compatibility
+docker build --platform linux/amd64 -t "${IMAGE_URL}" -f "${PROJECT_ROOT}/src/wordpress-runtime/Dockerfile" "${PROJECT_ROOT}"
 echo "Docker image built."
 echo "---"
 

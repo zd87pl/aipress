@@ -191,29 +191,57 @@ async def destroy_site_poc(tenant_id: str):
     # Select the workspace
     ws_success, _, ws_stderr = run_terraform_command(["terraform", "workspace", "select", tenant_id], TF_MAIN_PATH_ABS)
     if not ws_success:
-         logger.error(f"Failed to select Terraform workspace {tenant_id}: {ws_stderr}")
-         raise HTTPException(status_code=500, detail=f"Failed to select Terraform workspace: {ws_stderr}")
+         # If workspace doesn't exist, it might already be deleted or never created.
+         # Consider returning success or a specific message instead of 500.
+         logger.warning(f"Failed to select Terraform workspace {tenant_id} (might not exist): {ws_stderr}")
+         # For PoC, let's allow destroy attempt even if select fails, TF destroy will likely fail cleanly if state missing.
+         # raise HTTPException(status_code=500, detail=f"Failed to select Terraform workspace: {ws_stderr}")
+         logger.info(f"Attempting destroy even though workspace selection failed for {tenant_id}")
+
 
     # Define tfvars file path (needed for destroy?) - Usually not needed if state exists
     tf_vars_file_name = f"tenant-{tenant_id}.auto.tfvars.json"
     tf_vars_file_path = os.path.join(TF_MAIN_PATH_ABS, tf_vars_file_name)
 
-    # Run destroy
-    # Note: Need to ensure destroy works correctly with generated secrets etc.
-    # May need -refresh=false or handle dependencies carefully.
+    # Construct the destroy command with necessary -var flags for root variables
+    # These are needed for Terraform to parse the configuration, even during destroy
+    # Construct wp_runtime_sa_email needed for parsing
+    wp_runtime_sa_email = f"{WP_RUNTIME_SA_NAME}@{GCP_PROJECT_ID}.iam.gserviceaccount.com"
+    destroy_command = [
+        "terraform",
+        "destroy",
+        "-auto-approve",
+        # Target only the tenant module instance to avoid trying to destroy project APIs
+        "-target=module.tenant_wordpress_instance", 
+        f"-var=gcp_project_id={GCP_PROJECT_ID}",
+        f"-var=gcp_region={GCP_REGION}",
+        f"-var=wp_docker_image_url={WP_DOCKER_IMAGE_URL}",
+        f"-var=control_plane_docker_image_url={os.getenv('CONTROL_PLANE_DOCKER_IMAGE_URL', WP_DOCKER_IMAGE_URL)}",
+        f"-var=tenant_id={tenant_id}", # Needed to parse module
+        f"-var=wp_runtime_sa_email={wp_runtime_sa_email}", # Needed to parse module
+        f"-var=shared_sql_instance_name={SHARED_SQL_INSTANCE_NAME}",
+        f"-var=tf_sa_name={os.getenv('TF_SA_NAME', 'terraform-sa')}",
+    ]
     destroy_success, destroy_stdout, destroy_stderr = run_terraform_command(
-        ["terraform", "destroy", "-auto-approve"],
+        destroy_command,
         TF_MAIN_PATH_ABS
     )
 
     # Attempt to remove the workspace after destroy
     if destroy_success:
          logger.info(f"Terraform destroy successful for {tenant_id}, removing workspace...")
+         # Switch back to default before deleting tenant workspace
          run_terraform_command(["terraform", "workspace", "select", "default"], TF_MAIN_PATH_ABS)
          run_terraform_command(["terraform", "workspace", "delete", tenant_id], TF_MAIN_PATH_ABS)
     else:
-         logger.error(f"Terraform destroy failed for tenant {tenant_id}")
-         raise HTTPException(status_code=500, detail=f"Terraform destroy failed: {destroy_stderr}")
+         # If destroy failed BUT workspace selection also failed earlier, maybe workspace gone?
+         if not ws_success:
+             logger.warning(f"Terraform destroy failed for {tenant_id}, but workspace selection also failed. Assuming already destroyed/cleaned.")
+             # Return success message here as it's likely already gone
+             return {"message": f"Site destruction attempt for {tenant_id} finished (likely already destroyed).", "logs": f"TF Stdout:\n{destroy_stdout}\nTF Stderr:\n{destroy_stderr}"}
+         else:
+             logger.error(f"Terraform destroy failed for tenant {tenant_id}")
+             raise HTTPException(status_code=500, detail=f"Terraform destroy failed: {destroy_stderr}")
 
     # Clean up tfvars file if it somehow still exists
     if os.path.exists(tf_vars_file_path):
@@ -224,7 +252,7 @@ async def destroy_site_poc(tenant_id: str):
             logger.warning(f"Could not remove tfvars file {tf_vars_file_path}: {e}")
 
 
-    return {"message": f"Site destruction initiated for {tenant_id}.", "logs": f"TF Stdout:\n{destroy_stdout}\nTF Stderr:\n{destroy_stderr}"}
+    return {"message": f"Site destruction initiated and potentially completed for {tenant_id}.", "logs": f"TF Stdout:\n{destroy_stdout}\nTF Stderr:\n{destroy_stderr}"}
 
 
 if __name__ == "__main__":

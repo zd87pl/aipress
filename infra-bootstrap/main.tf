@@ -48,6 +48,8 @@ resource "google_cloud_run_v2_service" "control_plane" {
   template {
     # Use the Terraform SA for this service
     service_account = "${var.tf_sa_name}@${var.gcp_project_id}.iam.gserviceaccount.com"
+    # Increase timeout to allow for longer Terraform operations
+    timeout = "900s" # Correct argument name is 'timeout', value is string like "900s"
 
     scaling {
       min_instance_count = 0
@@ -82,6 +84,10 @@ resource "google_cloud_run_v2_service" "control_plane" {
       env {
         name  = "CONTROL_PLANE_DOCKER_IMAGE_URL"
         value = var.control_plane_docker_image_url
+      }
+      env {
+        name  = "FORCE_REDEPLOY_TIMESTAMP" # Dummy variable to force update
+        value = timestamp()
       }
       # TF_MAIN_PATH is handled inside the container relative to /app
       # GOOGLE_APPLICATION_CREDENTIALS is not needed when using service account identity

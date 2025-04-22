@@ -93,6 +93,7 @@ resource "google_cloud_run_v2_service" "wordpress" {
       max_instance_count = var.max_instances # Make configurable
     }
 
+    # Consolidated containers block
     containers {
       image = var.wp_docker_image_url
       ports { container_port = 8080 } # Assuming container listens on 8080
@@ -124,25 +125,8 @@ resource "google_cloud_run_v2_service" "wordpress" {
         value = google_storage_bucket.wp_content.name
       }
       # TODO: Add other necessary WP env vars (salts - ideally from secrets, table prefix, etc.)
-      # Example for Salts (generate random ones or pull from secrets)
-      # env {
-      #   name  = "WORDPRESS_AUTH_KEY"
-      #   value = random_string.auth_key.result
-      # }
-      # ... etc for other salts
-    }
-
-    # Mount the Cloud SQL connection
-    volumes {
-      name = "cloudsql"
-      cloud_sql_instance {
-        instances = ["${var.gcp_project_id}:${var.gcp_region}:${var.shared_sql_instance_name}"]
-      }
-    }
-    # Re-declare containers block just to add the volume mount (Terraform quirk)
-    # Must include required 'image' argument here too
-    containers {
-      image = var.wp_docker_image_url # Add required image argument
+      
+      # Add volume mount within the same containers block
       volume_mounts {
         name       = "cloudsql"
         mount_path = "/cloudsql"
@@ -154,6 +138,14 @@ resource "google_cloud_run_v2_service" "wordpress" {
       #     memory = "512Mi"
       #   }
       # }
+    } # End of single containers block
+
+    # Mount the Cloud SQL connection (Volume definition is separate from container mount)
+    volumes {
+      name = "cloudsql"
+      cloud_sql_instance {
+        instances = ["${var.gcp_project_id}:${var.gcp_region}:${var.shared_sql_instance_name}"]
+      }
     }
 
     # TODO: Add VPC Access Connector if using Private IP for Cloud SQL
@@ -161,16 +153,16 @@ resource "google_cloud_run_v2_service" "wordpress" {
     #   connector = "your-vpc-connector-id"
     #   egress    = "all-traffic" # Or "private-ranges-only"
     # }
-  }
+  } # End of template block
 
-  # Public access is configured via google_cloud_run_service_iam_binding below
-
+  # depends_on block is a direct argument of the resource
   depends_on = [
     google_secret_manager_secret_iam_member.wp_runtime_secret_access,
     google_storage_bucket_iam_member.wp_runtime_bucket_access,
     google_sql_user.tenant_db_user # Ensure DB user is created before service starts
   ]
-}
+
+} # End of google_cloud_run_v2_service resource
 
 # Allow unauthenticated access to the WordPress service (for PoC)
 # WARNING: Remove this for production and use authenticated access (e.g., IAP)
@@ -182,7 +174,7 @@ resource "google_cloud_run_service_iam_binding" "wordpress_public_access" {
   members = [
     "allUsers",
   ]
-}
+} # End of google_cloud_run_service_iam_binding resource
 
 
 # Placeholder for Random Salts (if not using secrets)
