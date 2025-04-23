@@ -1,0 +1,54 @@
+# DOCKERFILE FOR LOCAL DEVELOPMENT ONLY
+# Build context: src/wordpress-runtime
+
+FROM wordpress:6.5-php8.2-fpm
+
+# Install dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    nginx \
+    supervisor \
+    && rm -rf /var/lib/apt/lists/*
+
+# System setup
+RUN groupadd --system --gid 33 www-data || echo "Group www-data already exists" && \
+    useradd --system --uid 33 --gid www-data --shell /usr/sbin/nologin www-data || echo "User www-data already exists" && \
+    usermod -a -G tty www-data
+
+RUN chmod 1777 /tmp
+
+# Remove all default pool configs to avoid conflicts
+RUN rm -f /usr/local/etc/php-fpm.d/www.conf /usr/local/etc/php-fpm.d/www.conf.default /usr/local/etc/php-fpm.d/docker.conf /usr/local/etc/php-fpm.d/zz-docker.conf
+
+# Copy PHP-FPM configuration files
+COPY php-fpm/00-logging.conf /usr/local/etc/php-fpm.d/00-logging.conf
+COPY php-fpm/www.conf /usr/local/etc/php-fpm.d/www.conf
+
+# Copy nginx configuration
+COPY nginx/nginx.conf /etc/nginx/nginx.conf
+COPY nginx/wordpress.conf /etc/nginx/conf.d/default.conf
+
+# Copy Supervisor configuration
+COPY supervisor/supervisord.conf /etc/supervisor/supervisor.conf
+
+# Copy WordPress config template and test script
+COPY wp-config-template.php /wp-config-template.php
+COPY test.php /var/www/html/test.php
+
+# Copy the new entrypoint script
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
+
+# Prepare PHP-FPM log directory
+RUN mkdir -p /var/run /var/log/php-fpm && \
+    chown www-data:www-data /var/run /var/log/php-fpm
+
+# Install additional PHP extensions as needed (uncomment if required)
+# RUN docker-php-ext-install <ext-name>
+
+# Run a brief FPM foreground test to catch config errors
+RUN echo "Attempting brief FPM foreground run..." && \
+    timeout 5s php-fpm -F -y /usr/local/etc/php-fpm.conf || true
+
+EXPOSE 8080
+
+ENTRYPOINT ["/docker-entrypoint.sh"]

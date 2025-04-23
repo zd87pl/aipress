@@ -29,6 +29,8 @@ RUN chmod 1777 /tmp
 # NOTE: WordPress core and PHP extensions are already included in the base image.
 # NOTE: Base image entrypoint handles initial WP file setup & permissions.
 
+# Remove all default pool configs to avoid conflicts
+RUN rm -f /usr/local/etc/php-fpm.d/www.conf /usr/local/etc/php-fpm.d/www.conf.default /usr/local/etc/php-fpm.d/docker.conf /usr/local/etc/php-fpm.d/zz-docker.conf
 # Copy PHP-FPM configuration files
 COPY src/wordpress-runtime/php-fpm/00-logging.conf /usr/local/etc/php-fpm.d/00-logging.conf
 COPY src/wordpress-runtime/php-fpm/www.conf /usr/local/etc/php-fpm.d/www.conf
@@ -57,13 +59,15 @@ COPY src/wordpress-runtime/supervisor/supervisord.conf /etc/supervisor/superviso
 RUN mkdir -p /var/run /var/log/php-fpm && \
     chown www-data:www-data /var/run /var/log/php-fpm
 
-# Copy the environment-variable-driven wp-config.php into place
-# This runs BEFORE the volume mount, ensuring it's in the image layer.
-# The base image might still copy default WP files later, but this wp-config.php should persist.
-COPY src/wordpress-runtime/wp-config-template.php /var/www/html/wp-config.php
-# Ensure www-data can read it (should be default, but explicit doesn't hurt)
-RUN chown www-data:www-data /var/www/html/wp-config.php && \
-    chmod 644 /var/www/html/wp-config.php
+# Copy custom wp-config template to root (not /var/www/html/)
+COPY src/wordpress-runtime/wp-config-template.php /wp-config-template.php
+
+# Copy test.php for PHP error/debug testing
+COPY src/wordpress-runtime/test.php /var/www/html/test.php
+
+# Copy the new entrypoint script
+COPY src/wordpress-runtime/docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
 
 # Attempt to run FPM briefly in foreground during build to catch early fatal errors
 # Install timeout utility first
@@ -84,8 +88,7 @@ EXPOSE 8080
 HEALTHCHECK --interval=10s --timeout=3s --start-period=30s --retries=3 \
   CMD curl --fail http://127.0.0.1:8080/wp-login.php || curl --fail http://127.0.0.1:8080/ || exit 1 # Check login page or root
 
-# DEBUGGING: Bypass supervisor, run php-fpm directly to isolate startup errors
-# Ensure errors go to stderr, which should be captured by Cloud Run logging
-ENTRYPOINT ["php-fpm", "-F", "-d", "display_errors=stderr"]
+# Start both nginx and php-fpm via Supervisor (required for Cloud Run)
+ENTRYPOINT ["/docker-entrypoint.sh"]
 
-# CMD is not needed when ENTRYPOINT is php-fpm -F
+# CMD is not needed when ENTRYPOINT is our custom entrypoint
