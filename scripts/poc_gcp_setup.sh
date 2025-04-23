@@ -155,10 +155,22 @@ echo "Granting roles/cloudsql.client to WordPress Runtime SA..."
 gcloud projects add-iam-policy-binding ${GCP_PROJECT_ID} \
   --member="serviceAccount:${WP_RUNTIME_SA_NAME}@${GCP_PROJECT_ID}.iam.gserviceaccount.com" \
   --role="roles/cloudsql.client"
-# Note: roles/storage.objectAdmin and roles/secretmanager.secretAccessor will be granted
-#       per-resource within the Terraform configuration.
 
-echo "Service Accounts created."
+# Grant roles/secretmanager.secretAccessor - Needed to read DB password and salts
+read -p "Grant 'roles/secretmanager.secretAccessor' to WordPress Runtime SA '${WP_RUNTIME_SA_NAME}'? (Needed for DB password/salts) [y/N]: " confirm_wp_sa_secret
+if [[ ! "$confirm_wp_sa_secret" =~ ^[Yy]$ ]]; then
+    echo "Aborting WordPress Runtime SA Secret Accessor role grant."
+    exit 1
+fi
+echo "Granting roles/secretmanager.secretAccessor to WordPress Runtime SA..."
+# This command is additive
+gcloud projects add-iam-policy-binding ${GCP_PROJECT_ID} \
+  --member="serviceAccount:${WP_RUNTIME_SA_NAME}@${GCP_PROJECT_ID}.iam.gserviceaccount.com" \
+  --role="roles/secretmanager.secretAccessor"
+
+# Note: roles/storage.objectAdmin will be granted per-resource via Terraform.
+
+echo "Service Accounts created and base roles granted."
 echo "---"
 
 # --- 3. Create Artifact Registry Repository ---

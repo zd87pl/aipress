@@ -11,7 +11,7 @@ This Proof-of-Concept (PoC) establishes the core infrastructure provisioning mec
 (See [ARCHITECTURE.md](ARCHITECTURE.md) for details.)
 
 *   **Control Plane:** A FastAPI application deployed on Cloud Run (`aipress-control-plane`). Receives API requests (e.g., `/poc/create-site/{tenant_id}`) and uses Terraform within its container to manage tenant resources. Runs as the `terraform-sa` service account.
-*   **Tenant WordPress Runtime:** Deployed as a dedicated Cloud Run service (`aipress-tenant-{tenant_id}`) per tenant. Uses a custom Docker image (Debian-based, Nginx, PHP-FPM, Supervisor, gcsfuse). Connects to a dedicated Cloud SQL database and uses a dedicated GCS bucket for `wp-content`. Runs as the `wp-runtime-sa` service account.
+*   **Tenant WordPress Runtime:** Deployed as a dedicated Cloud Run service (`aipress-tenant-{tenant_id}`) per tenant. Uses a custom Docker image (Debian-based, Nginx, PHP-FPM, Supervisor). Connects to a dedicated Cloud SQL database (via Cloud Run's native integration) and uses a dedicated GCS bucket for media uploads (intended for use with a stateless media plugin like WP Offload Media). Includes an environment-variable driven `wp-config.php`. Runs as the `wp-runtime-sa` service account.
 *   **Infrastructure as Code:**
     *   `infra-bootstrap/`: Terraform configuration to deploy the Control Plane Cloud Run service and enable project APIs. Applied manually once or via CI/CD.
     *   `infra/`: Terraform configuration containing only the `tenant_wordpress` module definition. This configuration is copied into the Control Plane image and used by the API to manage tenants within workspaces.
@@ -100,12 +100,15 @@ This Proof-of-Concept (PoC) establishes the core infrastructure provisioning mec
     │   ├── main.py        # FastAPI application code
     │   └── requirements.txt # Python dependencies
     └── wordpress-runtime/ # WordPress runtime container setup
-        ├── Dockerfile     # Dockerfile for WP runtime (Debian based)
-        ├── entrypoint.sh  # Entrypoint script (gcsfuse mount)
-        ├── nginx/         # Nginx configuration
+        ├── Dockerfile             # Dockerfile for WP runtime (Debian based)
+        ├── wp-config-template.php # Template for env-var driven wp-config.php
+        ├── nginx/                 # Nginx configuration
         │   ├── nginx.conf
         │   └── wordpress.conf
-        └── supervisor/    # Supervisor configuration
+        ├── php-fpm/               # PHP-FPM configuration
+        │   ├── 00-logging.conf    # Global logging config
+        │   └── www.conf           # Pool config
+        └── supervisor/            # Supervisor configuration
             └── supervisord.conf
 ```
 

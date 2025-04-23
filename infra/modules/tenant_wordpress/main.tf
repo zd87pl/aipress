@@ -34,11 +34,85 @@ resource "google_secret_manager_secret_iam_member" "wp_runtime_secret_access" {
   member    = "serviceAccount:${var.wp_runtime_sa_email}"
 }
 
-# --- GCS Bucket for wp-content - REMOVED ---
-# resource "google_storage_bucket" "wp_content" { ... }
+# --- WordPress Salts/Keys Generation and Secret Storage ---
+locals {
+  wp_salt_keys = [
+    "auth_key",
+    "secure_auth_key",
+    "logged_in_key",
+    "nonce_key",
+    "auth_salt",
+    "secure_auth_salt",
+    "logged_in_salt",
+    "nonce_salt",
+  ]
+}
 
-# Grant the WP Runtime SA access to THIS specific bucket - REMOVED ---
-# resource "google_storage_bucket_iam_member" "wp_runtime_bucket_access" { ... }
+resource "random_password" "wp_salts" {
+  for_each = toset(local.wp_salt_keys)
+  length   = 64
+  special  = true
+  # Use a broader special character set suitable for WP salts
+  override_special = "!@#$%^&*()-_=+[]{};:,./<>?~"
+}
+
+resource "google_secret_manager_secret" "wp_salt_secrets" {
+  for_each  = toset(local.wp_salt_keys)
+  project   = var.gcp_project_id
+  secret_id = "aipress-tenant-${var.tenant_id}-wp-${replace(each.key, "_", "-")}" # e.g., aipress-tenant-xyz-wp-auth-key
+
+  labels = {
+    "aipress-tenant-id" = var.tenant_id
+    "aipress-secret-type" = "wp-salt"
+  }
+
+  replication {
+    auto {}
+  }
+
+  depends_on = [random_password.wp_salts] # Ensure random value is generated first
+}
+
+resource "google_secret_manager_secret_version" "wp_salt_secret_versions" {
+  for_each    = google_secret_manager_secret.wp_salt_secrets
+  secret      = each.value.id
+  secret_data = random_password.wp_salts[each.key].result
+}
+
+# Grant the WP Runtime SA access to EACH salt secret
+resource "google_secret_manager_secret_iam_member" "wp_runtime_salt_secret_access" {
+  for_each  = google_secret_manager_secret.wp_salt_secrets
+  project   = split("/", each.value.id)[1]
+  secret_id = each.value.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${var.wp_runtime_sa_email}"
+}
+
+
+# --- GCS Bucket for Stateless Plugin ---
+resource "random_id" "bucket_suffix" {
+  byte_length = 4
+}
+
+resource "google_storage_bucket" "stateless_media" {
+  project       = var.gcp_project_id
+  # Bucket names must be globally unique
+  name          = "aipress-${var.tenant_id}-media-${random_id.bucket_suffix.hex}"
+  location      = var.gcp_region
+  force_destroy = false # Set to true only for non-prod/testing
+  uniform_bucket_level_access = true
+
+  labels = {
+    "aipress-tenant-id" = var.tenant_id
+  }
+}
+
+# Grant the WP Runtime SA access to THIS specific bucket
+resource "google_storage_bucket_iam_member" "stateless_media_rw" {
+  bucket = google_storage_bucket.stateless_media.name
+  role   = "roles/storage.objectAdmin" # Allows read/write/delete objects
+  member = "serviceAccount:${var.wp_runtime_sa_email}"
+}
 
 # --- Cloud SQL Database & User ---
 resource "google_sql_database" "tenant_db" {
@@ -104,8 +178,46 @@ resource "google_cloud_run_v2_service" "wordpress" {
       #   name  = "GCS_BUCKET_NAME"
       #   value = google_storage_bucket.wp_content.name
       # }
-      # TODO: Add env vars for WP Offload Media plugin if needed
-      
+
+      # Env Vars for WP Offload Media (S3 Compatibility Mode)
+      # Assumes plugin is configured to use env vars and S3 provider with GCS endpoint/creds
+      env {
+        name = "AS3CF_PROVIDER"
+        value = "aws" # Use 'aws' provider for S3 compatibility
+      }
+      env {
+        name = "AS3CF_BUCKET"
+        value = google_storage_bucket.stateless_media.name
+      }
+      env {
+        name = "AS3CF_REGION"
+        value = var.gcp_region # GCS region
+      }
+      env {
+        name = "AS3CF_SETTINGS" # JSON string for other settings if needed
+        value = jsonencode({
+          "use-server-roles" : true, # Use attached Service Account
+          "enable-object-prefix": true, # Recommended: Store files under wp-content/uploads prefix
+          "object-prefix": "wp-content/uploads/",
+          "copy-to-s3": true, # Upload files
+          "serve-from-s3": true, # Serve files from GCS
+          # "force-https": true # Optional
+        })
+      }
+      # Add standard WordPress salts/keys from dynamically created secrets
+      env { name = "WORDPRESS_AUTH_KEY",         value_source = { secret_key_ref = { secret = google_secret_manager_secret.wp_salt_secrets["auth_key"].secret_id,         version = "latest" } } }
+      env { name = "WORDPRESS_SECURE_AUTH_KEY",  value_source = { secret_key_ref = { secret = google_secret_manager_secret.wp_salt_secrets["secure_auth_key"].secret_id,  version = "latest" } } }
+      env { name = "WORDPRESS_LOGGED_IN_KEY",    value_source = { secret_key_ref = { secret = google_secret_manager_secret.wp_salt_secrets["logged_in_key"].secret_id,    version = "latest" } } }
+      env { name = "WORDPRESS_NONCE_KEY",        value_source = { secret_key_ref = { secret = google_secret_manager_secret.wp_salt_secrets["nonce_key"].secret_id,        version = "latest" } } }
+      env { name = "WORDPRESS_AUTH_SALT",        value_source = { secret_key_ref = { secret = google_secret_manager_secret.wp_salt_secrets["auth_salt"].secret_id,        version = "latest" } } }
+      env { name = "WORDPRESS_SECURE_AUTH_SALT", value_source = { secret_key_ref = { secret = google_secret_manager_secret.wp_salt_secrets["secure_auth_salt"].secret_id, version = "latest" } } }
+      env { name = "WORDPRESS_LOGGED_IN_SALT",   value_source = { secret_key_ref = { secret = google_secret_manager_secret.wp_salt_secrets["logged_in_salt"].secret_id,   version = "latest" } } }
+      env { name = "WORDPRESS_NONCE_SALT",       value_source = { secret_key_ref = { secret = google_secret_manager_secret.wp_salt_secrets["nonce_salt"].secret_id,       version = "latest" } } }
+      env {
+         name = "WORDPRESS_DEBUG" # Optional: control WP_DEBUG
+         value = "false" # Set to "true" for debugging if needed
+      }
+
       # Add volume mount within the same containers block
       volume_mounts {
         name       = "cloudsql"
@@ -130,8 +242,9 @@ resource "google_cloud_run_v2_service" "wordpress" {
 
   # depends_on block is a direct argument of the resource
   depends_on = [
-    google_secret_manager_secret_iam_member.wp_runtime_secret_access,
-    # google_storage_bucket_iam_member.wp_runtime_bucket_access, # REMOVED
+    google_secret_manager_secret_iam_member.wp_runtime_secret_access, # For DB password
+    google_secret_manager_secret_iam_member.wp_runtime_salt_secret_access, # For WP salts/keys
+    google_storage_bucket_iam_member.stateless_media_rw, # Ensure bucket permission is set
     google_sql_user.tenant_db_user # Ensure DB user is created before service starts
   ]
 
