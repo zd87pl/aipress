@@ -1,61 +1,61 @@
 #!/bin/bash
-set -e
+set -exuo pipefail
 
-# Debug: Show environment and permissions
-echo "--- ENVIRONMENT VARIABLES ---"
-env
+# Function to handle signals
+function handle_signal {
+    echo "[Entrypoint] Received signal, shutting down..."
+    kill -TERM $NGINX_PID 2>/dev/null || true
+    kill -TERM $PHP_FPM_PID 2>/dev/null || true
+    exit 0
+}
 
-echo "--- /var/www/html PERMISSIONS ---"
-ls -l /var/www/html
-ls -l /var/www/html/wp-config.php || echo "wp-config.php missing"
+# Print environment variables relevant to WordPress/PHP
+printenv | grep -E 'WORDPRESS|MYSQL|DB|PHP|NGINX' || true
 
-# Always call the base image entrypoint to ensure WordPress setup logic runs
-# (This will set up WordPress files and wp-config.php if needed)
-docker-entrypoint.sh php-fpm &
+# Set up signal handlers
+trap handle_signal SIGTERM SIGINT
 
-# Wait for WordPress core files to be present before copying wp-config.php
-WP_INDEX="/var/www/html/index.php"
-MAX_WAIT=20
-WAITED=0
-while [ ! -f "$WP_INDEX" ] && [ $WAITED -lt $MAX_WAIT ]; do
-    echo "Waiting for WordPress core files... ($WAITED/$MAX_WAIT)"
-    sleep 1
-    WAITED=$((WAITED+1))
-done
-if [ ! -f "$WP_INDEX" ]; then
-    echo "ERROR: WordPress core files not found after $MAX_WAIT seconds."
-    ls -l /var/www/html
+# Start nginx in background
+echo "[Entrypoint] Starting nginx in background..."
+nginx -g 'daemon off;' &
+NGINX_PID=$!
+
+# Check if nginx started successfully
+sleep 1
+if ! kill -0 $NGINX_PID 2>/dev/null; then
+    echo "[Entrypoint] ERROR: nginx failed to start"
     exit 1
 fi
+echo "[Entrypoint] nginx started successfully with PID $NGINX_PID"
 
-# Overwrite with our custom wp-config.php if it exists
+# Install WordPress core files if missing
+if [ ! -f "/var/www/html/wp-includes/version.php" ]; then
+    echo "[Entrypoint] WordPress files not found, copying from /usr/src/wordpress..."
+    cp -a /usr/src/wordpress/* /var/www/html/
+    echo "[Entrypoint] WordPress files copied."
+else
+    echo "[Entrypoint] WordPress files already present."
+fi
+
+# Copy our custom wp-config.php if it exists
 if [ -f /wp-config-template.php ]; then
+    echo "[Entrypoint] Copying custom wp-config.php..."
     cp /wp-config-template.php /var/www/html/wp-config.php
     chown www-data:www-data /var/www/html/wp-config.php
     chmod 644 /var/www/html/wp-config.php
-    echo "Custom wp-config.php copied."
-else
-    echo "No custom wp-config-template.php found."
 fi
-ls -l /var/www/html/wp-config.php
 
-# Debug: Test php-fpm config only (do not start php-fpm here, Supervisor will manage it)
-php-fpm -tt || true
+# Fix permissions for WordPress files and directories
+# This is critical for Cloud Run and PHP-FPM to work!
+echo "[Entrypoint] Fixing permissions for /var/www/html..."
+chown -R www-data:www-data /var/www/html
+find /var/www/html -type d -exec chmod 755 {} \;
+find /var/www/html -type f -exec chmod 644 {} \;
 
-# List all PHP-FPM config files for debugging
-ls -l /usr/local/etc/php-fpm.d/
-ls -l /usr/local/etc/
+# Print directory listing and permissions for debugging
+echo "[Entrypoint] Directory listing for /var/www/html:"
+ls -lA /var/www/html
 
-# Show contents of all PHP-FPM config files for debugging
-for f in /usr/local/etc/php-fpm.conf /usr/local/etc/php-fpm.d/*.conf; do
-  echo "===== $f ====="
-  cat "$f"
-  echo
-  echo "=============="
-done
-
-# Show PHP-FPM config info
-php-fpm -i || true
-
-# Start Supervisor (which starts nginx and php-fpm)
-exec /usr/bin/supervisord -c /etc/supervisor/supervisor.conf
+# Start PHP-FPM in the foreground (main process)
+echo "[Entrypoint] Starting PHP-FPM in foreground..."
+exec php-fpm -F

@@ -13,7 +13,6 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Install necessary additional packages: nginx, supervisor
 RUN apt-get update && apt-get install -y --no-install-recommends \
         nginx \
-        supervisor \
     # Clean up apt lists
     && rm -rf /var/lib/apt/lists/*
 
@@ -42,8 +41,6 @@ RUN php-fpm -t
 COPY src/wordpress-runtime/nginx/nginx.conf /etc/nginx/nginx.conf
 COPY src/wordpress-runtime/nginx/wordpress.conf /etc/nginx/conf.d/default.conf
 
-# Configure Supervisord
-COPY src/wordpress-runtime/supervisor/supervisord.conf /etc/supervisor/supervisor.conf
 
 # Remove explicit chown/chmod of /var/www/html - rely on base image entrypoint
 # RUN echo "Setting ownership for /var/www/html..." && \
@@ -88,7 +85,4 @@ EXPOSE 8080
 HEALTHCHECK --interval=10s --timeout=3s --start-period=30s --retries=3 \
   CMD curl --fail http://127.0.0.1:8080/wp-login.php || curl --fail http://127.0.0.1:8080/ || exit 1 # Check login page or root
 
-# Start both nginx and php-fpm via Supervisor (required for Cloud Run)
 ENTRYPOINT ["/docker-entrypoint.sh"]
-
-# CMD is not needed when ENTRYPOINT is our custom entrypoint
