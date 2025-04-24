@@ -205,14 +205,78 @@ resource "google_cloud_run_v2_service" "wordpress" {
         })
       }
       # Add standard WordPress salts/keys from dynamically created secrets
-      env { name = "WORDPRESS_AUTH_KEY",         value_source = { secret_key_ref = { secret = google_secret_manager_secret.wp_salt_secrets["auth_key"].secret_id,         version = "latest" } } }
-      env { name = "WORDPRESS_SECURE_AUTH_KEY",  value_source = { secret_key_ref = { secret = google_secret_manager_secret.wp_salt_secrets["secure_auth_key"].secret_id,  version = "latest" } } }
-      env { name = "WORDPRESS_LOGGED_IN_KEY",    value_source = { secret_key_ref = { secret = google_secret_manager_secret.wp_salt_secrets["logged_in_key"].secret_id,    version = "latest" } } }
-      env { name = "WORDPRESS_NONCE_KEY",        value_source = { secret_key_ref = { secret = google_secret_manager_secret.wp_salt_secrets["nonce_key"].secret_id,        version = "latest" } } }
-      env { name = "WORDPRESS_AUTH_SALT",        value_source = { secret_key_ref = { secret = google_secret_manager_secret.wp_salt_secrets["auth_salt"].secret_id,        version = "latest" } } }
-      env { name = "WORDPRESS_SECURE_AUTH_SALT", value_source = { secret_key_ref = { secret = google_secret_manager_secret.wp_salt_secrets["secure_auth_salt"].secret_id, version = "latest" } } }
-      env { name = "WORDPRESS_LOGGED_IN_SALT",   value_source = { secret_key_ref = { secret = google_secret_manager_secret.wp_salt_secrets["logged_in_salt"].secret_id,   version = "latest" } } }
-      env { name = "WORDPRESS_NONCE_SALT",       value_source = { secret_key_ref = { secret = google_secret_manager_secret.wp_salt_secrets["nonce_salt"].secret_id,       version = "latest" } } }
+      env {
+        name = "WORDPRESS_AUTH_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.wp_salt_secrets["auth_key"].secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "WORDPRESS_SECURE_AUTH_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.wp_salt_secrets["secure_auth_key"].secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "WORDPRESS_LOGGED_IN_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.wp_salt_secrets["logged_in_key"].secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "WORDPRESS_NONCE_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.wp_salt_secrets["nonce_key"].secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "WORDPRESS_AUTH_SALT"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.wp_salt_secrets["auth_salt"].secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "WORDPRESS_SECURE_AUTH_SALT"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.wp_salt_secrets["secure_auth_salt"].secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "WORDPRESS_LOGGED_IN_SALT"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.wp_salt_secrets["logged_in_salt"].secret_id
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "WORDPRESS_NONCE_SALT"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.wp_salt_secrets["nonce_salt"].secret_id
+            version = "latest"
+          }
+        }
+      }
       env {
          name = "WORDPRESS_DEBUG" # Optional: control WP_DEBUG
          value = "false" # Set to "true" for debugging if needed
@@ -223,12 +287,12 @@ resource "google_cloud_run_v2_service" "wordpress" {
         name       = "cloudsql"
         mount_path = "/cloudsql"
       }
-      # resources {
-      #   limits = {
-      #     cpu    = "1000m"
-      #     memory = "512Mi"
-      #   }
-      # }
+      resources {
+        limits = {
+          cpu    = "1000m"
+          memory = "512Mi"
+        }
+      }
     } # End of single containers block
 
     # Mount the Cloud SQL connection

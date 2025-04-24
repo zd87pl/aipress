@@ -19,7 +19,7 @@ output "tenant_db_password_secret_version_id" {
   sensitive   = true # Mark the output itself as sensitive, though the value is just the ID
 }
 
-output "wp_content_bucket_name" {
-  description = "The name of the GCS bucket created for wp-content."
-  value       = google_storage_bucket.wp_content.name
-}
+# output "wp_content_bucket_name" {
+#   description = "The name of the GCS bucket created for wp-content."
+#   value       = google_storage_bucket.wp_content.name
+# }
