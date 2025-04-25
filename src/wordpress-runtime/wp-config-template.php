@@ -22,15 +22,18 @@ function get_env_var($key, $default = null) {
 // ** Database settings - You can get this info from your web host ** //
 /** The name of the database for WordPress */
 define( 'DB_NAME', get_env_var('WORDPRESS_DB_NAME', 'wordpress') );
-
-/** Database username */
 define( 'DB_USER', get_env_var('WORDPRESS_DB_USER', 'root') );
-
-/** Database password */
 define( 'DB_PASSWORD', get_env_var('WORDPRESS_DB_PASSWORD', '') );
+// Use localhost and default socket for Cloud SQL
+define( 'DB_HOST', 'localhost' );
+// Configure MySQLi to use Unix socket
+ini_set( 'mysqli.default_socket', '/cloudsql/wp-engine-ziggy:us-central1:aipress-poc-db-shared' );
 
-/** Database hostname */
-define( 'DB_HOST', get_env_var('WORDPRESS_DB_HOST', 'localhost') );
+// --- BEGIN DB SOCKET DEBUG ---
+error_log("WP DB DEBUG: DB_HOST constant = " . DB_HOST);
+error_log("WP DB DEBUG: Default socket = " . ini_get('mysqli.default_socket'));
+error_log("WP DB DEBUG: Socket file exists? " . (file_exists(ini_get('mysqli.default_socket')) ? 'yes' : 'no'));
+// --- END DB SOCKET DEBUG ---
 
 /** Database charset to use in creating database tables. */
 define( 'DB_CHARSET', get_env_var('WORDPRESS_DB_CHARSET', 'utf8mb4') );
@@ -108,4 +111,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /** Sets up WordPress vars and included files. */
+// --- BEGIN ENV DEBUG SNIPPET ---
+error_log("ENV DEBUG: WORDPRESS_DB_HOST=" . getenv('WORDPRESS_DB_HOST'));
+error_log("ENV DEBUG: WORDPRESS_DB_USER=" . getenv('WORDPRESS_DB_USER'));
+error_log("ENV DEBUG: WORDPRESS_DB_NAME=" . getenv('WORDPRESS_DB_NAME'));
+// --- END ENV DEBUG SNIPPET ---
 require_once ABSPATH . 'wp-settings.php';

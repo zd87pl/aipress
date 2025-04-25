@@ -56,11 +56,14 @@ COPY src/wordpress-runtime/nginx/wordpress.conf /etc/nginx/conf.d/default.conf
 RUN mkdir -p /var/run /var/log/php-fpm && \
     chown www-data:www-data /var/run /var/log/php-fpm
 
-# Copy custom wp-config template to root (not /var/www/html/)
-COPY src/wordpress-runtime/wp-config-template.php /wp-config-template.php
+# Copy custom wp-config template to /var/www/html/wp-config.php (so WordPress can run without init)
+COPY src/wordpress-runtime/wp-config-template.php /var/www/html/wp-config.php
 
 # Copy test.php for PHP error/debug testing
 COPY src/wordpress-runtime/test.php /var/www/html/test.php
+
+# Build-time check: ensure /var/www/html contains WordPress files (should see index.php)
+RUN ls -lA /var/www/html
 
 # Copy the new entrypoint script
 COPY src/wordpress-runtime/docker-entrypoint.sh /docker-entrypoint.sh

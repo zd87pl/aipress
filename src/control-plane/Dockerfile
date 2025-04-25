@@ -50,9 +50,7 @@ COPY infra /infra
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Expose the port the app runs on
-EXPOSE 8000
-
-# Command to run the application using uvicorn
-# Note: No --reload in production container
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Expose the port Cloud Run uses (default 8080)
+EXPOSE 8080
+# Rely on Cloud Run’s provided PORT env var
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT}"]
