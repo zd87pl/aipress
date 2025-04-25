@@ -146,10 +146,25 @@ resource "google_cloud_run_v2_service" "wordpress" {
       max_instance_count = var.max_instances # Make configurable
     }
 
-    # Consolidated containers block
+    # Mount Cloud SQL socket
+    volumes {
+      name = "cloudsql-socket"
+      cloud_sql_instance {
+        instances = [
+          "${var.gcp_project_id}:${var.gcp_region}:${var.shared_sql_instance_name}"
+        ]
+      }
+    }
+
     containers {
       image = var.wp_docker_image_url
       ports { container_port = 8080 }
+
+      # Mount the Cloud SQL socket volume
+      volume_mounts {
+        name      = "cloudsql-socket"
+        mount_path = "/cloudsql"
+      }
 
       # Standard WP Env Vars
       env {
@@ -282,11 +297,6 @@ resource "google_cloud_run_v2_service" "wordpress" {
          value = "false" # Set to "true" for debugging if needed
       }
 
-      # Add volume mount within the same containers block
-      volume_mounts {
-        name       = "cloudsql"
-        mount_path = "/cloudsql"
-      }
       resources {
         limits = {
           cpu    = "1000m"
@@ -295,13 +305,6 @@ resource "google_cloud_run_v2_service" "wordpress" {
       }
     } # End of single containers block
 
-    # Mount the Cloud SQL connection
-    volumes {
-      name = "cloudsql"
-      cloud_sql_instance {
-        instances = ["${var.gcp_project_id}:${var.gcp_region}:${var.shared_sql_instance_name}"]
-      }
-    }
   } # End of template block
 
   # depends_on block is a direct argument of the resource
