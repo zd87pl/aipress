@@ -8,5 +8,5 @@ google-auth>=2.20.0,<3.0.0
 # Firebase Admin for backend auth verification
 firebase-admin>=6.0.0,<7.0.0
 
-# Add other dependencies as needed, e.g.:
-# requests>=2.30.0
+# HTTP Client for calling Control Plane API
+requests>=2.30.0,<3.0.0
