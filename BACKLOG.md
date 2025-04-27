@@ -23,53 +23,66 @@ This backlog outlines the major phases, epics, and features required to build th
 
 ## Phase 2: MVP Chatbot & Control Plane API
 
-*Goal: Build the user-facing chat interface, core control plane API, and basic site creation flow.*
+*Goal: Build the user-facing chat interface, admin portal, core control plane API, authentication, and basic site creation flow using Gemini as the conversational engine.*
 
 *   **Epic: Authentication & Authorization (RBAC)**
-    *   Feature: Implement user signup/login (Google, Apple, Email Link) using Firebase Auth or similar.
-    *   Feature: Define and implement roles (e.g., 'Tenant', 'Admin') using custom claims or similar mechanism.
-    *   Feature: Integrate Auth/Authz checks into Chatbot Frontend & Backend.
-    *   Feature: Integrate Auth/Authz checks into Tenant Admin UI.
-*   **Epic: Chatbot Frontend**
-    *   Feature: Create basic web application structure (React, Vue, etc.).
-    *   Feature: Implement chat message display interface.
-    *   Feature: Implement message input component.
-    *   Feature: Connect frontend to Chatbot Backend API.
-*   **Epic: Chatbot Backend**
-    *   Feature: Create API service (Cloud Run/Functions - Node.js/Python/Go).
-    *   Feature: Implement WebSocket or polling for real-time chat feel.
-    *   Feature: Basic API endpoint to receive messages & user context.
-    *   Feature: Integrate with Vertex AI (Gemini) API.
-    *   Feature: Implement Gemini prompting for basic intent recognition (site creation, operational queries).
-    *   Feature: **Enhance Gemini prompting to extract target tenant identifiers from Admin requests.**
-    *   Feature: Implement conversational flow logic (asking questions for site creation).
-    *   Feature: **Implement RBAC checks within API handlers.**
-    *   Feature: **Parameterize query logic to use logged-in tenant ID or admin-specified tenant ID.**
-    *   Feature: Integrate with Control Plane API.
-*   **Epic: Control Plane API (Core)**
-    *   Feature: Create API service (Cloud Run/GKE - Node.js/Python/Go).
-    *   Feature: Define initial API specification (OpenAPI).
-    *   Feature: Implement endpoint for initiating site creation request.
-    *   Feature: Set up database (Firestore/Cloud SQL) for storing tenant/site metadata.
-    *   Feature: Basic API authentication/authorization (validating tokens from Chatbot BE / Tenant Admin FE).
-    *   Feature: **Enhance API authorization to potentially restrict certain actions based on role.**
+    *   Feature: Choose and configure managed authentication provider (Firebase Auth recommended).
+    *   Feature: Implement user signup/login flows (Google, Apple, GitHub, Email Link/Passwordless) using provider SDK.
+    *   Feature: Define 'Tenant' and 'Admin' roles. Implement role assignment on first sign-up (default 'Tenant').
+    *   Feature: Implement role management UI (Admin Portal).
+    *   Feature: Utilize Custom Claims (if available) to embed roles in auth tokens.
+    *   Feature: Implement token verification middleware in Chatbot Backend and Control Plane API.
+    *   Feature: Implement endpoint-level authorization checks based on verified role and tenant ownership in both backends.
+*   **Epic: Chatbot Frontend (React + TypeScript + Tailwind)**
+    *   Feature: Set up React project using TypeScript and Tailwind CSS.
+    *   Feature: Implement Design System components (light, clean aesthetic inspired by Apple/Uber):
+        *   `Button.tsx`, `TextInput.tsx`, `Modal.tsx`, `ChatMessage.tsx`, `ChatLog.tsx`, `ChatInput.tsx`, `LogDisplay.tsx`, `DataTable.tsx`, `LoadingSpinner.tsx`.
+    *   Feature: Implement core chat interface using the design system components.
+    *   Feature: Integrate authentication provider SDK for login/signup/logout UI flows (`LoginButton` variants, user status display).
+    *   Feature: Implement API client to communicate with Chatbot Backend (sending messages, handling responses). Attach auth token to requests.
+*   **Epic: Chatbot Backend (FastAPI + Vertex AI)**
+    *   Feature: Set up FastAPI project, including Dockerfile.
+    *   Feature: Add dependencies: `google-cloud-aiplatform`, `google-auth`, `requests`.
+    *   Feature: Implement `/chat` endpoint to handle incoming user messages.
+    *   Feature: Integrate authentication token verification middleware.
+    *   Feature: Implement Gemini integration using Vertex AI SDK.
+    *   Feature: Develop robust prompt engineering strategy for Gemini:
+        *   Define Gemini's role and capabilities.
+        *   Include chat history, user context (tenant\_id).
+        *   Define structured "Action" commands (e.g., `CREATE_SITE`, `GET_LOGS`, `DELETE_SITE`).
+        *   Implement safety guidelines.
+    *   Feature: Implement logic to interpret Gemini's response (text vs. Action).
+    *   Feature: Implement action validation (permissions, parameters) based on authenticated user and recognized action.
+    *   Feature: Implement client logic to call Control Plane API for validated actions.
+    *   Feature: Implement logic to format Control Plane responses (or use Gemini) for user display.
+*   **Epic: Control Plane API (Enhancements for Chatbot & Admin)**
+    *   Feature: Enhance FastAPI service setup (authentication middleware, OpenAPI spec).
+    *   Feature: Implement API endpoints for user management (`/users`, `/users/{id}` - Admin only).
+    *   Feature: Implement API endpoints for tenant management/viewing (`/tenants`, `/tenants/{id}` - Admin/Tenant specific).
+    *   Feature: Implement API endpoints for operational data (`/tenants/{id}/logs`, `/tenants/{id}/billing` - Admin/Tenant specific, RBAC enforced).
+    *   Feature: Implement API endpoint for site deletion (`/tenants/{id}` DELETE - Admin/Tenant specific).
+    *   Feature: Refine database schema (Firestore/Cloud SQL) to store user roles and tenant associations.
+    *   Feature: Implement robust authorization logic within each endpoint based on verified token/role/ownership.
+    *   Feature: Define secure mechanism for storing/retrieving tenant-specific credentials needed for operations (e.g., log access keys managed via Secret Manager, linked in DB).
 *   **Epic: Control Plane Initial Configuration**
     *   Feature: Define mechanism for providing target GCP Project ID to Control Plane (e.g., Env Var, Config File).
-    *   Feature: Ensure Control Plane service account has necessary permissions within the target project (including Billing API/BigQuery access).
+    *   Feature: Ensure Control Plane service account has necessary permissions within the target project (including Billing API/BigQuery access, Secret Manager access).
     *   Feature: **Securely configure platform's Cloudflare API credentials (or other DNS provider) for Control Plane.**
 *   **Epic: Billing Configuration**
     *   Feature: Enable detailed GCP Billing Export to a BigQuery dataset within the platform project.
     *   Feature: Define and **enforce mandatory labeling (`aipress-tenant-id`)** for all tenant-specific resources during provisioning.
-*   **Epic: Tenant Configuration Interface (Admin UI)**
-    *   Feature: Create basic web application structure for Admin section (can reuse Chatbot FE structure/libs).
-    *   Feature: Implement UI component for managing tenant-specific environment variables/secrets for *third-party integrations* (key-value pairs, marking sensitive values).
-    *   Feature: Connect Admin UI to Control Plane API endpoints.
-    *   Feature: Integrate Authentication with Admin UI.
-*   **Epic: Control Plane API (Tenant Env Var Support)**
-    *   Feature: API endpoint to securely store/retrieve tenant-specific environment variables/secrets for *third-party integrations* (linking to Secret Manager).
-*   **Epic: Control Plane API (DNS/CDN Management)**
-    *   Feature: Implement logic to interact with Cloudflare API (or other DNS provider) using platform credentials.
-    *   Feature: API endpoint/logic for adding/updating DNS records for custom domains.
+*   **Epic: Tenant Configuration Interface (Admin UI - React)**
+    *   Feature: Set up Admin Portal section within the React frontend (potentially separate route/entry point).
+    *   Feature: Implement Design System components specific to Admin Portal:
+        *   `AdminLayout.tsx`, `SidebarNav.tsx`, `UserTable.tsx`, `UserForm.tsx`, `TenantList.tsx`, `SecretInput.tsx`.
+    *   Feature: Implement UI views for User Management, Tenant Listing/Details, using the design system components.
+    *   Feature: Integrate Authentication provider SDK for Admin login. Ensure UI routes/components are protected based on 'Admin' role.
+    *   Feature: Connect Admin UI views to relevant Control Plane API endpoints (fetching users/tenants, managing roles, potentially managing tenant config/secrets).
+*   **Epic: Control Plane API (Tenant Env Var & Secure Config)**
+    *   Feature: Implement API endpoints for Admin to manage tenant-specific configuration/secrets (e.g., service account keys for log access), storing securely (e.g., Secret Manager integration).
+
+*   **(Moved DNS/CDN logic to later phase or integrate as needed for custom domains)**
+    *   ~~Feature: API endpoint/logic for adding/updating DNS records for custom domains.~~
     *   Feature: API endpoint/logic for potentially configuring basic CDN settings via API.
 
 ## Phase 3: Tenant WordPress Runtime
@@ -134,13 +147,36 @@ This backlog outlines the major phases, epics, and features required to build th
     *   Feature: Explore runtime security monitoring (Falco/SCC).
     *   Feature: Implement automated vulnerability scanning.
 *   **Epic: Performance Optimization**
-    *   Feature: Implement proactive asset optimization.
-    *   Feature: Advanced database tuning/read replicas.
+    *   **Feature: Cloud Run Right-Sizing Analysis:** Analyze tenant resource usage (CPU/Memory) to potentially use fractional vCPUs or smaller memory allocations for lower-tier/lower-traffic sites.
+    *   **Feature: Cloud Run Concurrency Tuning:** Experiment with and document optimal concurrency settings based on typical WordPress workloads.
+    *   **Feature: Implement Tiered `min-instances` Option:** Offer a higher performance tier with `min-instances=1` for reduced cold starts.
+    *   **Feature: Evaluate ARM Architecture for Cloud Run:** Investigate building and deploying ARM64-based `wordpress-runtime` images for potential price/performance benefits.
+    *   **Feature: Profile & Optimize `docker-entrypoint.sh`:** Reduce container startup latency by optimizing the entrypoint script.
+    *   **Feature: Implement Full Page Caching Strategy:** Integrate and configure a robust WordPress page caching plugin (e.g., WP Super Cache, W3 Total Cache).
+    *   **Feature: GCS Signed URLs for Media:** Ensure WP Offload Media (or equivalent) is configured to use Signed URLs for direct client uploads/downloads.
+    *   **(If using `gcsfuse`): Feature: `gcsfuse` Performance Tuning:** Optimize mount options (`stat-cache-ttl`, `type-cache-ttl`, `--implicit-dirs`) if `gcsfuse` is used for themes/plugins.
+    *   **Feature: Implement Cloud SQL Read Replicas Option:** Offer read replicas as a feature for high-traffic/read-heavy sites.
+    *   **Feature: Provide Cloud SQL Query Insights Guidance:** Develop documentation or tooling to help tenants identify slow queries.
+    *   Feature: Implement proactive asset optimization (existing).
+    *   Feature: Advanced database tuning/read replicas (covered above, refined).
 *   **Epic: Cost Optimization**
-    *   Feature: Implement smart Cloud Run/SQL tiering.
-    *   Feature: Implement GCS lifecycle rules.
+    *   **Feature: Analyze & Implement Committed Use Discounts (CUDs):** Regularly review sustained usage and purchase CUDs for Cloud Run, Cloud SQL, and Memorystore baseline needs.
+    *   **Feature: Evaluate Shared Cloud SQL Instance Model:** Investigate using separate databases within shared Cloud SQL instances as a potential lower-cost tier.
+    *   **Feature: Evaluate Shared Memorystore Instance Model:** Investigate using Redis namespaces within shared Memorystore instances as a potential lower-cost tier.
+    *   **Feature: Implement GCS Lifecycle Policies:** Define and apply rules for transitioning objects to cheaper storage classes or deleting old backups/data.
+    *   **Feature: Evaluate GCP Network Service Tiers:** Assess if Standard Tier networking is suitable for certain use cases or tenant tiers instead of Premium Tier.
+    *   Feature: Implement smart Cloud Run/SQL tiering (existing, could be refined by above).
+    *   Feature: Implement GCS lifecycle rules (covered above, refined).
+*   **Epic: Advanced Caching & CDN**
+    *   **Feature: Implement Tiered Caching Strategies:** Configure CDN with multiple cache layers if beneficial.
+    *   **Feature: Leverage Advanced CDN Features:** Implement edge image optimization, advanced routing (e.g., Cloudflare Argo).
+    *   **Feature: Explore Edge Compute Options:** Investigate Cloudflare Workers or similar for edge-side caching or logic.
 *   **Epic: Feature Enhancements**
     *   Feature: Automated custom domain validation/setup.
     *   Feature: Backup & Restore functionality (via Control Plane/Chatbot).
     *   Feature: Staging environments.
     *   Feature: Pre-installed plugin/theme bundles.
+*   **(New Epic): Database Enhancements**
+    *   **Feature: Implement Robust Connection Pooling:** Ensure efficient PHP-FPM and Cloud SQL Auth Proxy connection handling.
+    *   **Feature: Monitor & Alert on DB Connection Limits.**
+    *   **Feature: Explore Serverless Database Options:** Keep Cloud SQL Serverless v2 / AlloyDB Omni under consideration for future needs.
