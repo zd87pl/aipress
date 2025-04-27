@@ -38,9 +38,9 @@ AIPress aims to be a highly scalable, performant, cost-effective, and user-frien
 *   **Tenant WordPress Runtime (Per Site):**
     *   **Deployment Target:** Provisioned within the **single designated platform GCP project**.
     *   **Compute:** Dedicated Google Cloud Run Service. Auto-scales based on traffic, including scale-to-zero.
-    *   **Container:** Optimized Docker image containing WordPress core, PHP-FPM, Nginx, `gcsfuse`. Dynamically configured at startup, including tenant-specific environment variables from the Admin Section.
-    *   **Database:** Dedicated Google Cloud SQL Database (MySQL/Postgres) within a shared or dedicated instance.
-    *   **File Storage:** Dedicated Google Cloud Storage (GCS) Bucket/Prefix mounted via `gcsfuse` to `/wp-content`. Stores themes, plugins, uploads.
+    *   **Container:** Custom Docker image based on the official `wordpress:fpm` image, adding Nginx. Uses a custom entrypoint script (`docker-entrypoint.sh`) to manage initial setup (copying WP core, setting permissions, applying `wp-config.php` from template) and starting Nginx & PHP-FPM. Dynamically configured at startup using environment variables (including tenant-specific ones if provided via Admin Section).
+    *   **Database:** Dedicated Google Cloud SQL Database (MySQL/Postgres) within a shared or dedicated instance. Connection is handled via environment variables, including support for Cloud SQL connection sockets.
+    *   **File Storage (Persistent):** Dedicated Google Cloud Storage (GCS) Bucket/Prefix intended for `/wp-content` (themes, plugins, uploads). Requires a mechanism like WP Offload Media plugin within WordPress, as the container itself is stateless and doesn't currently mount GCS directly with `gcsfuse`.
     *   **Object Cache:** Google Cloud Memorystore (Redis/Memcached) instance/namespace for WordPress object caching.
 *   **Networking & Delivery:**
     *   **CDN:** Google Cloud CDN primarily. If Cloudflare is used (especially for custom domains), its configuration (DNS, potentially basic settings) is managed by the **Platform Control Plane** using platform credentials.
