@@ -56,8 +56,8 @@ COPY src/wordpress-runtime/nginx/wordpress.conf /etc/nginx/conf.d/default.conf
 RUN mkdir -p /var/run /var/log/php-fpm && \
     chown www-data:www-data /var/run /var/log/php-fpm
 
-# Copy custom wp-config template to /var/www/html/wp-config.php (so WordPress can run without init)
-COPY src/wordpress-runtime/wp-config-template.php /var/www/html/wp-config.php
+# Copy custom wp-config template to a temporary location
+COPY src/wordpress-runtime/wp-config-template.php /tmp/wp-config-template.php
 
 # Copy test.php for PHP error/debug testing
 COPY src/wordpress-runtime/test.php /var/www/html/test.php

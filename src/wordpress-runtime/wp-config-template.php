@@ -24,15 +24,28 @@ function get_env_var($key, $default = null) {
 define( 'DB_NAME', get_env_var('WORDPRESS_DB_NAME', 'wordpress') );
 define( 'DB_USER', get_env_var('WORDPRESS_DB_USER', 'root') );
 define( 'DB_PASSWORD', get_env_var('WORDPRESS_DB_PASSWORD', '') );
-// Use localhost and default socket for Cloud SQL
-define( 'DB_HOST', 'localhost' );
-// Configure MySQLi to use Unix socket
-ini_set( 'mysqli.default_socket', '/cloudsql/wp-engine-ziggy:us-central1:aipress-poc-db-shared' );
+
+// Determine DB Host and Socket based on environment variable
+$_db_host_env = get_env_var('WORDPRESS_DB_HOST');
+$_db_socket_path = null;
+if (strpos($_db_host_env, '/cloudsql/') === 0) {
+    // It's a Cloud SQL socket path
+    define( 'DB_HOST', 'localhost' ); // Use localhost when socket is specified
+    $_db_socket_path = $_db_host_env;
+    ini_set('mysqli.default_socket', $_db_socket_path);
+    error_log("[WP Config] Detected Cloud SQL socket. DB_HOST set to 'localhost', mysqli.default_socket set to: " . $_db_socket_path);
+} else {
+    // Assume it's a regular hostname/IP
+    define( 'DB_HOST', $_db_host_env );
+    error_log("[WP Config] Using standard DB_HOST: " . DB_HOST);
+}
 
 // --- BEGIN DB SOCKET DEBUG ---
 error_log("WP DB DEBUG: DB_HOST constant = " . DB_HOST);
-error_log("WP DB DEBUG: Default socket = " . ini_get('mysqli.default_socket'));
-error_log("WP DB DEBUG: Socket file exists? " . (file_exists(ini_get('mysqli.default_socket')) ? 'yes' : 'no'));
+if ($_db_socket_path) {
+    error_log("WP DB DEBUG: mysqli.default_socket = " . ini_get('mysqli.default_socket'));
+    error_log("WP DB DEBUG: Socket file '{$_db_socket_path}' exists? " . (file_exists($_db_socket_path) ? 'yes' : 'no'));
+}
 // --- END DB SOCKET DEBUG ---
 
 /** Database charset to use in creating database tables. */

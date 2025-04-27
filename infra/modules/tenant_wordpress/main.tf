@@ -1,8 +1,7 @@
 # --- Random Password for DB ---
 resource "random_password" "db_password" {
   length           = 16
-  special          = true
-  override_special = "!#$%&*()-_=+[]{}<>:?"
+  # Removed special = true and override_special
 }
 
 # --- Secret Manager for DB Password ---
@@ -125,6 +124,7 @@ resource "google_sql_user" "tenant_db_user" {
   project  = var.gcp_project_id
   instance = var.shared_sql_instance_name
   name     = replace("aipress_${var.tenant_id}", "-", "_") # Ensure valid user name format
+  host     = "localhost" # Explicitly set host for socket connections
   password = random_password.db_password.result
 }
 
@@ -136,6 +136,7 @@ resource "google_cloud_run_v2_service" "wordpress" {
 
   labels = {
     "aipress-tenant-id" = var.tenant_id # Label the service for cost tracking etc.
+    # "dummy-redeployment-trigger" = "2" # Removing dummy label
   }
 
   template {
@@ -148,7 +149,7 @@ resource "google_cloud_run_v2_service" "wordpress" {
 
     # Mount Cloud SQL socket
     volumes {
-      name = "cloudsql-socket"
+      name = "cloudsql" # Name MUST be "cloudsql" for Cloud SQL volumes
       cloud_sql_instance {
         instances = [
           "${var.gcp_project_id}:${var.gcp_region}:${var.shared_sql_instance_name}"
@@ -162,7 +163,7 @@ resource "google_cloud_run_v2_service" "wordpress" {
 
       # Mount the Cloud SQL socket volume
       volume_mounts {
-        name      = "cloudsql-socket"
+        name      = "cloudsql" # Must match the volume name above
         mount_path = "/cloudsql"
       }
 

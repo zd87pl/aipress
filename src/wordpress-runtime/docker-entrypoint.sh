@@ -19,23 +19,30 @@ trap handle_signal SIGTERM SIGINT
 
 # --- Ensure WordPress core and config are present BEFORE starting services ---
 
-# Install WordPress core files if missing
-if [ ! -f "/var/www/html/wp-includes/version.php" ]; then
-    echo "[Entrypoint] WordPress files not found, copying from /usr/src/wordpress..."
-    cp -a /usr/src/wordpress/* /var/www/html/
-    echo "[Entrypoint] WordPress files copied."
+# Check if WordPress core files are present (index.php is a good indicator)
+if [ ! -f "/var/www/html/index.php" ] && [ -f "/var/www/html/wp-includes/version.php" ]; then
+    echo >&2 "[Entrypoint] Warning: index.php missing but wp-includes/version.php exists. Assuming incomplete WP install. Re-copying core files."
+    # If version.php exists but index.php doesn't, something is wrong, so re-copy
+    find /var/www/html/ -mindepth 1 -maxdepth 1 -print -delete # Clear existing potentially partial files/dirs
+    cp -a /usr/src/wordpress/. /var/www/html/
+    echo "[Entrypoint] WordPress core files copied."
+elif [ ! -f "/var/www/html/wp-includes/version.php" ]; then
+    echo "[Entrypoint] WordPress core files not found (wp-includes/version.php missing), copying from /usr/src/wordpress..."
+    # Use . to copy contents including hidden files if necessary, ensure target exists
+    cp -a /usr/src/wordpress/. /var/www/html/
+    echo "[Entrypoint] WordPress core files copied."
 else
-    echo "[Entrypoint] WordPress files already present."
+    echo "[Entrypoint] WordPress core files appear to be present."
 fi
 
-# Always copy our custom wp-config.php
-if [ -f /wp-config-template.php ]; then
-    echo "[Entrypoint] Forcing copy of custom wp-config.php..."
-    cp -f /wp-config-template.php /var/www/html/wp-config.php
+# Always copy our custom wp-config.php from /tmp where the Dockerfile placed it
+if [ -f /tmp/wp-config-template.php ]; then
+    echo "[Entrypoint] Forcing copy of custom wp-config.php from /tmp..."
+    cp -f /tmp/wp-config-template.php /var/www/html/wp-config.php
+    # Permissions will be set globally below, but set owner here
     chown www-data:www-data /var/www/html/wp-config.php
-    chmod 644 /var/www/html/wp-config.php
 else
-    echo "[Entrypoint] WARNING: /wp-config-template.php not found!"
+    echo >&2 "[Entrypoint] CRITICAL WARNING: /tmp/wp-config-template.php not found! Cannot apply custom config."
 fi
 
 # Fix permissions for WordPress files and directories
@@ -50,6 +57,27 @@ ls -lA /usr/local/etc/php-fpm.d/ || true
 ls -lA /var/www/html || true
 php-fpm -v || true
 php-fpm -t || true
+
+# --- Wait for Cloud SQL socket ---
+SOCKET_PATH="$WORDPRESS_DB_HOST" # Get the path from env var
+if [[ -n "$SOCKET_PATH" && "$SOCKET_PATH" == /cloudsql/* ]]; then
+  echo "[Entrypoint] Waiting for Cloud SQL socket at $SOCKET_PATH..."
+  WAIT_TIMEOUT=30 # seconds
+  SECONDS_WAITED=0
+  while ! [ -S "$SOCKET_PATH" ]; do
+    if [ "$SECONDS_WAITED" -ge "$WAIT_TIMEOUT" ]; then
+      echo >&2 "[Entrypoint] ERROR: Timed out waiting for Cloud SQL socket $SOCKET_PATH"
+      ls -lA /cloudsql/ # List contents for debugging
+      exit 1
+    fi
+    echo "[Entrypoint] Socket $SOCKET_PATH not found yet, waiting..."
+    sleep 1
+    SECONDS_WAITED=$((SECONDS_WAITED + 1))
+  done
+  echo "[Entrypoint] Cloud SQL socket $SOCKET_PATH found."
+else
+  echo "[Entrypoint] WORDPRESS_DB_HOST does not look like a Cloud SQL socket path ($SOCKET_PATH), skipping wait."
+fi
 
 # --- Start services ---
 php-fpm -F &
