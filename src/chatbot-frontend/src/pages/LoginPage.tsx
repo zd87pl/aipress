@@ -1,16 +1,79 @@
-import React from 'react';
-// Import useAuth hook to access login functions later
-// import { useAuth } from '../contexts/AuthContext'; 
+import React, { useState } from 'react'; // Import useState
+import { useAuth } from '../contexts/AuthContext'; // Import useAuth hook
 import Button from '../components/Button'; // Use the Button component
+import TextInput from '../components/TextInput'; // Import TextInput
+import LoadingSpinner from '../components/LoadingSpinner'; // Import LoadingSpinner
 
 const LoginPage: React.FC = () => {
-  // const { signInWithGoogle, signInWithGithub, /* ... other methods */ } = useAuth();
+  const { 
+    signInWithGoogle, 
+    signInWithGithub, 
+    signInWithApple, 
+    signUpWithEmail, // Destructure email functions
+    signInWithEmail 
+  } = useAuth(); 
 
-  // Placeholder handlers - replace with actual calls to useAuth functions
-  const handleGoogleSignIn = () => console.log('TODO: Sign in with Google');
-  const handleGithubSignIn = () => console.log('TODO: Sign in with GitHub');
-  const handleAppleSignIn = () => console.log('TODO: Sign in with Apple');
-  const handleEmailSignIn = () => console.log('TODO: Sign in with Email');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null); // State for displaying errors
+  const [isSubmitting, setIsSubmitting] = useState(false); // State to disable buttons during auth
+
+  // --- Social Sign-In Handlers ---
+  const handleGoogleSignIn = async () => {
+    try {
+      await signInWithGoogle();
+      // No need to navigate here, AuthContext listener in App.tsx will handle re-render
+    } catch (error) {
+      console.error("Google Sign-In failed in component:", error);
+      // Optionally show an error message to the user
+    }
+  };
+  const handleGithubSignIn = async () => {
+    try {
+      await signInWithGithub();
+    } catch (error) {
+      console.error("GitHub Sign-In failed in component:", error);
+    }
+  };
+  const handleAppleSignIn = async () => {
+    try {
+      await signInWithApple();
+    } catch (error) {
+       console.error("Apple Sign-In failed in component:", error);
+       // Optionally show an error message to the user
+    }
+  };
+
+  // --- Email/Password Handlers ---
+   const handleEmailSignIn = async (e: React.FormEvent) => {
+    e.preventDefault(); // Prevent default form submission
+    setError(null);
+    setIsSubmitting(true);
+    try {
+      await signInWithEmail(email, password);
+      // Auth state change will handle redirect/UI update
+    } catch (err: any) {
+      console.error("Email Sign-In failed:", err);
+      setError(err.message || "Failed to sign in. Please check your credentials.");
+      setIsSubmitting(false);
+    }
+     // isSubmitting will be reset by auth state change on success
+  };
+
+   const handleEmailSignUp = async (e: React.FormEvent) => {
+     e.preventDefault(); 
+     setError(null);
+     setIsSubmitting(true);
+     try {
+       await signUpWithEmail(email, password);
+       // Auth state change will handle redirect/UI update
+     } catch (err: any) {
+       console.error("Email Sign-Up failed:", err);
+       setError(err.message || "Failed to sign up.");
+       setIsSubmitting(false);
+     }
+      // isSubmitting will be reset by auth state change on success
+   };
 
 
   return (
@@ -45,16 +108,219 @@ const LoginPage: React.FC = () => {
           >
             {/* Placeholder for Apple Icon */}
             <span className="mr-2"></span> 
-            Sign in with Apple
-          </Button>
-           <Button 
-            variant="secondary" 
-            onClick={handleEmailSignIn}
-            className="w-full"
-          >
-            Sign in with Email
+                Sign in with Apple
           </Button>
         </div>
+
+        {/* Separator */}
+        <div className="my-6 flex items-center justify-center">
+          <span className="px-2 text-sm text-gray-500">Or</span>
+        </div>
+
+        {/* Email/Password Form */}
+        <form onSubmit={handleEmailSignIn} className="space-y-4">
+           {error && (
+            <p className="text-red-500 text-sm text-center">{error}</p>
+          )}
+          <TextInput
+            label="Email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.com"
+            required
+            disabled={isSubmitting}
+            aria-label="Email address"
+          />
+          <TextInput
+            label="Password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
+            required
+            disabled={isSubmitting}
+            aria-label="Password"
+          />
+          <div className="flex flex-col sm:flex-row sm:space-x-2 space-y-2 sm:space-y-0 pt-2">
+             <Button 
+              type="submit" // Sign in by default
+              variant="primary"
+              disabled={isSubmitting || !email || !password}
+              className="w-full"
+            >
+              {/* LoadingSpinner will be added later */}
+              {isSubmitting ? 'Signing In...' : 'Sign In'} 
+            </Button>
+            <Button 
+              type="button" // Use type="button" to prevent form submission
+              variant="secondary"
+              onClick={handleEmailSignUp} // Call sign up handler
+              disabled={isSubmitting || !email || !password}
+              className="w-full"
+            >
+               {/* LoadingSpinner will be added later */}
+              {isSubmitting ? 'Signing Up...' : 'Sign Up'}
+            </Button>
+          </div>
+        </form>
+
+        {/* Separator */}
+        <div className="my-6 flex items-center justify-center">
+          <span className="px-2 text-sm text-gray-500">Or</span>
+        </div>
+
+        {/* Email/Password Form */}
+        <form onSubmit={handleEmailSignIn} className="space-y-4">
+           {error && (
+            <p className="text-red-500 text-sm text-center">{error}</p>
+          )}
+          <TextInput
+            label="Email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.com"
+            required
+            disabled={isSubmitting}
+            aria-label="Email address"
+          />
+          <TextInput
+            label="Password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
+            required
+            disabled={isSubmitting}
+            aria-label="Password"
+          />
+          <div className="flex flex-col sm:flex-row sm:space-x-2 space-y-2 sm:space-y-0 pt-2">
+             <Button 
+              type="submit" // Sign in by default
+              variant="primary"
+              disabled={isSubmitting || !email || !password}
+              className="w-full"
+            >
+              {/* LoadingSpinner will be added in next step */}
+              {isSubmitting ? 'Signing In...' : 'Sign In'} 
+            </Button>
+            <Button 
+              type="button" // Use type="button" to prevent form submission
+              variant="secondary"
+              onClick={handleEmailSignUp} // Call sign up handler
+              disabled={isSubmitting || !email || !password}
+              className="w-full"
+            >
+               {/* LoadingSpinner will be added in next step */}
+              {isSubmitting ? 'Signing Up...' : 'Sign Up'}
+            </Button>
+          </div>
+        </form>
+
+        {/* Separator */}
+        <div className="my-6 flex items-center justify-center">
+          <span className="px-2 text-sm text-gray-500">Or</span>
+        </div>
+
+        {/* Email/Password Form */}
+        <form onSubmit={handleEmailSignIn} className="space-y-4">
+           {error && (
+            <p className="text-red-500 text-sm text-center">{error}</p>
+          )}
+          <TextInput
+            label="Email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.com"
+            required
+            disabled={isSubmitting}
+            aria-label="Email address"
+          />
+          <TextInput
+            label="Password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
+            required
+            disabled={isSubmitting}
+            aria-label="Password"
+          />
+          <div className="flex flex-col sm:flex-row sm:space-x-2 space-y-2 sm:space-y-0 pt-2">
+             <Button 
+              type="submit" // Sign in by default
+              variant="primary"
+              disabled={isSubmitting || !email || !password}
+              className="w-full"
+            >
+              {/* LoadingSpinner will be added in next step */}
+              {isSubmitting ? 'Signing In...' : 'Sign In'} 
+            </Button>
+            <Button 
+              type="button" // Use type="button" to prevent form submission
+              variant="secondary"
+              onClick={handleEmailSignUp} // Call sign up handler
+              disabled={isSubmitting || !email || !password}
+              className="w-full"
+            >
+               {/* LoadingSpinner will be added in next step */}
+              {isSubmitting ? 'Signing Up...' : 'Sign Up'}
+            </Button>
+          </div>
+        </form>
+
+        {/* Separator */}
+        <div className="my-6 flex items-center justify-center">
+          <span className="px-2 text-sm text-gray-500">Or</span>
+        </div>
+
+        {/* Email/Password Form */}
+        <form onSubmit={handleEmailSignIn} className="space-y-4">
+           {error && (
+            <p className="text-red-500 text-sm text-center">{error}</p>
+          )}
+          <TextInput
+            label="Email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.com"
+            required
+            disabled={isSubmitting}
+            aria-label="Email address"
+          />
+          <TextInput
+            label="Password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
+            required
+            disabled={isSubmitting}
+            aria-label="Password"
+          />
+          <div className="flex flex-col sm:flex-row sm:space-x-2 space-y-2 sm:space-y-0 pt-2">
+             <Button 
+              type="submit" // Sign in by default
+              variant="primary"
+              disabled={isSubmitting || !email || !password}
+              className="w-full"
+            >
+              {isSubmitting ? <LoadingSpinner size="sm" color="text-white" /> : 'Sign In'}
+            </Button>
+            <Button 
+              type="button" // Use type="button" to prevent form submission
+              variant="secondary"
+              onClick={handleEmailSignUp} // Call sign up handler
+              disabled={isSubmitting || !email || !password}
+              className="w-full"
+            >
+              {isSubmitting ? <LoadingSpinner size="sm" /> : 'Sign Up'}
+            </Button>
+          </div>
+        </form>
       </div>
     </div>
   );
