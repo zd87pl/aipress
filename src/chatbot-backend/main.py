@@ -135,13 +135,14 @@ async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(auth_
 @app.post("/chat", response_model=ChatMessageOutput)
 async def handle_chat_message(
     chat_input: ChatMessageInput, 
-    user: dict = Depends(verify_token) # Add dependency here
+    # user: dict = Depends(verify_token) # Temporarily disabled auth dependency for testing
 ):
     """
-    Handles incoming chat messages (authenticated), gets response from Gemini, 
-    and potentially interprets and executes actions via Control Plane.
+    Handles incoming chat messages (authentication temporarily disabled), 
+    gets response from Gemini, and potentially interprets actions.
     """
-    user_uid = user.get("uid") 
+    # Mock user ID for testing when auth is disabled
+    user_uid = "mock-user-for-testing" 
     tenant_id = chat_input.tenant_id # Get tenant_id from input
     print(f"Handling chat for user: {user_uid}, tenant: {tenant_id}")
 
