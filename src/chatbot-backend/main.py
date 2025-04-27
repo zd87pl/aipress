@@ -1,7 +1,14 @@
 import os
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 import uvicorn
+
+# Firebase Admin
+import firebase_admin
+from firebase_admin import credentials, auth
+
+# Google Cloud / Vertex AI
 import google.auth
 import vertexai
 from vertexai.generative_models import GenerativeModel, Part
@@ -34,6 +41,20 @@ try:
 except Exception as e:
     print(f"Error loading Gemini model '{GEMINI_MODEL_NAME}': {e}")
     # raise
+
+# Initialize Firebase Admin SDK
+# This assumes Application Default Credentials (ADC) are set up for the environment
+# where the backend runs (e.g., service account key file path in GOOGLE_APPLICATION_CREDENTIALS
+# or running on Cloud Run/Functions with appropriate identity).
+# Alternatively, explicitly provide credential path:
+# cred = credentials.Certificate("path/to/your/serviceAccountKey.json")
+# firebase_admin.initialize_app(cred)
+try:
+    firebase_admin.initialize_app()
+    print("Firebase Admin SDK initialized successfully.")
+except Exception as e:
+    print(f"Error initializing Firebase Admin SDK: {e}")
+    # raise # Might want to raise here as auth is critical
 
 app = FastAPI(
     title="AIPress Chatbot Backend",
@@ -81,17 +102,43 @@ async def get_gemini_response(prompt: str) -> str:
         raise HTTPException(status_code=500, detail=f"Error communicating with AI model: {e}")
 
 
+# --- Authentication Dependency ---
+auth_scheme = HTTPBearer()
+
+async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(auth_scheme)):
+    """Dependency function to verify Firebase ID token."""
+    token = credentials.credentials
+    try:
+        # Verify the ID token while checking if the token is revoked.
+        decoded_token = auth.verify_id_token(token, check_revoked=True)
+        # You can access user info like decoded_token['uid'], decoded_token['email']
+        print(f"Token verified for UID: {decoded_token.get('uid')}")
+        return decoded_token # Or just return uid/email as needed
+    except auth.RevokedIdTokenError:
+        raise HTTPException(status_code=401, detail="Token has been revoked.")
+    except auth.InvalidIdTokenError:
+        raise HTTPException(status_code=401, detail="Invalid ID token.")
+    except Exception as e:
+        print(f"Error verifying token: {e}")
+        raise HTTPException(status_code=401, detail="Could not verify token.")
+
+
 # --- API Endpoints ---
 @app.post("/chat", response_model=ChatMessageOutput)
-async def handle_chat_message(chat_input: ChatMessageInput):
+async def handle_chat_message(
+    chat_input: ChatMessageInput, 
+    user: dict = Depends(verify_token) # Add dependency here
+):
     """
-    Handles incoming chat messages, gets response from Gemini, 
+    Handles incoming chat messages (authenticated), gets response from Gemini, 
     and (later) interprets actions.
     """
     # TODO: Build a more sophisticated prompt including history, user context, 
     #       defined actions Gemini can take, tenant_id etc.
+    # Now 'user' contains the decoded token payload (e.g., user['uid'])
     prompt = f"User message: {chat_input.message}\n\nRespond conversationally." 
-
+    # TODO: Add user_id/tenant_id to prompt based on 'user' dict
+    
     try:
         ai_response = await get_gemini_response(prompt)
         
