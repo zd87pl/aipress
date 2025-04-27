@@ -12,12 +12,24 @@ import ChatInput from './components/ChatInput'; // Import ChatInput
 interface Message {
   sender: 'user' | 'system';
   content: string;
+  // Optional: Add unique ID for keys later
+  id?: string | number; 
 }
 
+// Define the HistoryItem structure expected by the backend
+interface HistoryPart {
+  text: string;
+}
+interface HistoryItem {
+  role: 'user' | 'model'; // Match backend roles
+  parts: HistoryPart[];
+}
+
+
 function App() {
-  const { currentUser, loading, logout } = useAuth();
+  // Get getIdToken from useAuth
+  const { currentUser, loading, logout, getIdToken } = useAuth(); 
   const [messages, setMessages] = useState<Message[]>([
-    // Initial welcome message
     { sender: 'system', content: 'Welcome to AIPress! How can I help you today?' } 
   ]);
   const [isChatDisabled, setIsChatDisabled] = useState(false); // To disable input while processing
@@ -41,22 +53,60 @@ function App() {
     // Add user message to the log
     const userMessage: Message = { sender: 'user', content: messageContent };
     setMessages(prev => [...prev, userMessage]);
-    setIsChatDisabled(true); // Disable input
+    setIsChatDisabled(true);
 
-    // TODO: Send message to backend API
-    console.log('Sending to backend:', messageContent); 
-    
-    // --- Placeholder for backend response ---
-    // Simulate backend processing and response
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
-    const systemResponse: Message = { 
-      sender: 'system', 
-      content: `Received: "${messageContent}". (Backend processing not implemented yet)` 
-    };
-    setMessages(prev => [...prev, systemResponse]);
-    // --- End Placeholder ---
+    let systemResponse: Message;
+    try {
+      const token = await getIdToken(); // Get the auth token
+      if (!token) {
+        throw new Error("User not authenticated.");
+      }
 
-    setIsChatDisabled(false); // Re-enable input
+      console.log('Sending message to backend:', messageContent);
+      const backendUrl = import.meta.env.VITE_CHATBOT_BACKEND_URL || 'http://localhost:8080'; // Use env var or default
+
+      const response = await fetch(`${backendUrl}/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`, // Send the token
+        },
+        // Format history for the backend
+        body: JSON.stringify({ 
+            message: messageContent,
+            history: messages.map(msg => ({ // Map current messages state to history format
+                role: msg.sender === 'user' ? 'user' : 'model', // Convert 'system' to 'model' for backend
+                parts: [{ text: msg.content }]
+            })),
+            tenant_id: null // TODO: Add actual tenant_id later
+        }), 
+      });
+
+      if (!response.ok) {
+        // Try to get error detail from backend response
+        let errorDetail = `HTTP error! status: ${response.status}`;
+        try {
+            const errorData = await response.json();
+            errorDetail = errorData.detail || errorDetail;
+        } catch (jsonError) {
+            // Ignore if response is not JSON
+        }
+        throw new Error(errorDetail);
+      }
+
+      const data = await response.json();
+      systemResponse = { sender: 'system', content: data.response };
+
+    } catch (error: any) {
+      console.error("Error sending message to backend:", error);
+      systemResponse = { 
+        sender: 'system', 
+        content: `Error: ${error.message || 'Could not connect to the backend.'}` 
+      };
+    } finally {
+      setMessages(prev => [...prev, systemResponse]);
+      setIsChatDisabled(false); // Re-enable input regardless of success/failure
+    }
   };
 
 
