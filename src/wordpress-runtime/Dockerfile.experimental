@@ -16,7 +16,9 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
         nginx \
         coreutils \
-    # Clean up apt lists
+        gettext-base \ # Provides envsubst
+        unzip \        # Needed to unzip plugin
+    # Clean up apt lists afterwards
     && rm -rf /var/lib/apt/lists/*
 
 # Create www-data group and user if they don't exist (they SHOULD in Debian)
@@ -39,8 +41,8 @@ COPY src/wordpress-runtime/php-fpm/www.experimental.conf /usr/local/etc/php-fpm.
 # Copy custom OPcache settings
 COPY src/wordpress-runtime/php-fpm/zz-opcache.ini /usr/local/etc/php/conf.d/zz-opcache.ini
 
-# Validate PHP-FPM configuration syntax (including OPcache)
-RUN php-fpm -t
+# NOTE: PHP-FPM config validation (php-fpm -t) is now done in the entrypoint script
+# AFTER envsubst replaces placeholders. Cannot validate during build with placeholders.
 
 # Configure Nginx (using experimental configs)
 COPY src/wordpress-runtime/nginx/nginx.experimental.conf /etc/nginx/nginx.conf
@@ -52,14 +54,14 @@ RUN echo "[Build] Copying WordPress core files..." && \
     cp -a /usr/src/wordpress/. /var/www/html/ && \
     echo "[Build] WordPress core files copied."
 
-# *** OPTIMIZATION: Set permissions during build ***
-RUN echo "[Build] Setting ownership for /var/www/html..." && \
-    chown -R www-data:www-data /var/www/html && \
-    echo "[Build] Setting permissions for /var/www/html..." && \
-    find /var/www/html -type d -exec chmod 755 {} \; && \
-    find /var/www/html -type f -exec chmod 644 {} \; && \
-    echo "[Build] Verifying permissions:" && \
-    ls -ld /var/www/html && \
+# *** OITIMIZRTng :vSww/ptmmisl..ns duri.g build ***" && \
+    chown -R www-dSettdataow/erwhtp fo/vr/www/tml
+    ehown -R www-cata:www-datahovar/www/h "lBuild] Setting permissions for /var/www/html..." && \
+    efho "[Biidd] aew/ing hermistitp- feh /va5 &ww/tml.
+    fdnxec chmod 644 { -ty\e d ;exe  chm&d 755 {} \;
+    find /vae/www/htclh"tyui f dexe] Vemod 644 {} \;ng permissions:" && \
+   s-cho "[Build]dVarifywhg& \:" && \
+   l-d/a/www/html &&\
     ls -lA /var/www/html/index.php || echo "[Build] index.php might not exist yet, depending on base image stage"
 
 # Setup directories and permissions for runtime (logs, pids)

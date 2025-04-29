@@ -45,6 +45,13 @@ This document tracks the changes made to the experimental WordPress runtime cont
     *   Added `COPY` command for `zz-opcache.ini`.
     *   **Fix (2025-04-27):** Added explicit `cp -a /usr/src/wordpress/. /var/www/html/` before setting permissions to ensure WP core files are present during build.
     *   **Fix (2025-04-27):** Removed redundant core file check from `docker-entrypoint.experimental.sh`.
+8.  **Added Dynamic Tuning Capability (via Env Vars):**
+    *   Modified `php-fpm/www.experimental.conf` to use placeholders (`${PHP_PM_MAX_CHILDREN}`, etc.) for `pm.*` settings.
+    *   Modified `docker-entrypoint.experimental.sh` to:
+        *   Set default values for `PHP_PM_*` environment variables.
+        *   Use `envsubst` to substitute these environment variables into `/usr/local/etc/php-fpm.d/www.conf` before starting PHP-FPM.
+        *   Run `php-fpm -t` validation *after* substitution.
+    *   Modified `Dockerfile.experimental` to install `gettext-base` (needed for `envsubst`).
 
 ### Next Steps:
 

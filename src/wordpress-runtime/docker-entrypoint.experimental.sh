@@ -43,7 +43,33 @@ echo "[Entrypoint Experimental] Skipping runtime permission fix for /var/www/htm
 ls -lA /usr/local/etc/php-fpm.d/ || true
 ls -lA /var/www/html || true # Verify wp-config.php owner/perms
 php-fpm -v || true
-php-fpm -t || true
+# php-fpm -t || true # Config test is done after substitution now
+
+# --- Substitute Env Vars into PHP-FPM Config ---
+# Define defaults if variables are not set
+: "${PHP_PM_MAX_CHILDREN:=10}" # Default based on initial experimental setting
+: "${PHP_PM_START_SERVERS:=3}"
+: "${PHP_PM_MIN_SPARE_SERVERS:=2}"
+: "${PHP_PM_MAX_SPARE_SERVERS:=5}"
+# : "${PHP_PM_MAX_REQUESTS:=500}" # Example if using max_requests
+
+# Export the variables so envsubst can see them
+export PHP_PM_MAX_CHILDREN PHP_PM_START_SERVERS PHP_PM_MIN_SPARE_SERVERS PHP_PM_MAX_SPARE_SERVERS # PHP_PM_MAX_REQUESTS
+
+FPM_CONF_FILE="/usr/local/etc/php-fpm.d/www.conf" # The file with placeholders copied by Dockerfile
+
+echo "[Entrypoint Experimental] Substituting PHP-FPM pool config in $FPM_CONF_FILE..."
+# Use envsubst to replace placeholders from the template and write to a temporary file, then overwrite original
+# Important: Only substitute specific variables to avoid unintended replacements
+# Note: Requires 'gettext' package providing envsubst to be installed in the Docker image.
+envsubst '${PHP_PM_MAX_CHILDREN} ${PHP_PM_START_SERVERS} ${PHP_PM_MIN_SPARE_SERVERS} ${PHP_PM_MAX_SPARE_SERVERS}' < "$FPM_CONF_FILE" > "$FPM_CONF_FILE.tmp" && \
+    mv "$FPM_CONF_FILE.tmp" "$FPM_CONF_FILE" && \
+    echo "[Entrypoint Experimental] Substituted values written to $FPM_CONF_FILE." && \
+    echo "[Entrypoint Experimental] Verifying final config:" && \
+    cat "$FPM_CONF_FILE" && \
+    php-fpm -t || \
+    { echo >&2 "[Entrypoint Experimental] ERROR: Substitution or final FPM config validation failed!"; exit 1; }
+
 
 # --- Wait for Cloud SQL socket ---
 SOCKET_PATH="$WORDPRESS_DB_HOST" # Get the path from env var

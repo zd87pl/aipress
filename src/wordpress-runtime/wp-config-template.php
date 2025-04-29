@@ -14,7 +14,7 @@ function get_env_var($key, $default = null) {
     if ($value === false) {
         // Fallback for Apache/mod_php where getenv might not work as expected
         // Also useful if variables are injected differently
-        $value = $_ENV[$key] ?? $_SERVER[$key] ?? false; 
+        $value = $_ENV[$key] ?? $_SERVER[$key] ?? false;
     }
     return ($value !== false) ? $value : $default;
 }
@@ -95,7 +95,7 @@ $table_prefix = get_env_var('WORDPRESS_TABLE_PREFIX', 'wp_');
  *
  * @link https://wordpress.org/support/article/debugging-in-wordpress/
  */
-define( 'WP_DEBUG', filter_var(get_env_var('WORDPRESS_DEBUG', 'false'), FILTER_VALIDATE_BOOLEAN) );
+define( 'WP_DEBUG', false );
 
 /* Add any custom values between this line and the "stop editing" line. */
 
