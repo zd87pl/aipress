@@ -124,7 +124,7 @@ resource "google_sql_user" "tenant_db_user" {
   project  = var.gcp_project_id
   instance = var.shared_sql_instance_name
   name     = replace("aipress_${var.tenant_id}", "-", "_") # Ensure valid user name format
-  host     = "%" # Allow connection from any host (incl. Cloud SQL Proxy)
+  host     = "cloudsqlproxy~%" # Restrict to connections via Cloud SQL Auth Proxy or connectors
   password = random_password.db_password.result
 }
 
