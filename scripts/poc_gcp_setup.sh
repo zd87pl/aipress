@@ -11,8 +11,10 @@
 # - Run this script manually step-by-step or ensure you understand each command.
 # - Replace placeholder values (like YOUR_PROJECT_ID, YOUR_REGION, etc.)
 # - Securely store any generated keys (e.g., terraform-key.json). DO NOT COMMIT KEYS.
-# - The Terraform SA permissions granted here are broad for PoC simplicity.
-#   REPLACE with least-privilege roles before any production use.
+# - The Terraform SA permissions granted here were previously broad for PoC
+#   simplicity. This script now defines a minimal set of IAM roles required for
+#   Terraform to manage resources (Cloud Run, Cloud SQL, GCS, Secret Manager,
+#   Artifact Registry). Adjust as needed for your environment.
 #
 # Prerequisites:
 # - gcloud CLI installed and authenticated with appropriate user permissions.
@@ -28,6 +30,19 @@ export AR_REPO_NAME="aipress-images"
 export SHARED_SQL_INSTANCE_NAME="aipress-poc-db-shared"
 export SQL_ROOT_PASSWORD_SECRET_NAME="aipress-poc-sql-root-password"
 # SQL Root password will be prompted for interactively
+
+# Minimal IAM roles to grant to the Terraform Service Account. These roles allow
+# Terraform to manage Cloud Run services, Cloud SQL instances, GCS buckets,
+# Secret Manager secrets and Artifact Registry repositories. Modify if your
+# Terraform configuration requires additional permissions.
+TF_SA_ROLES=(
+  "roles/run.admin"
+  "roles/storage.admin"
+  "roles/secretmanager.admin"
+  "roles/cloudsql.admin"
+  "roles/artifactregistry.admin"
+  "roles/iam.serviceAccountUser"
+)
 
 # --- Get script's directory ---
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
@@ -79,21 +94,21 @@ else
       --project=${GCP_PROJECT_ID}
 fi
 
-echo "!!!"
-echo "!!! WARNING: The next step grants the highly privileged 'roles/owner' role to the Terraform SA."
-echo "!!! This is NOT recommended for production. Use least-privilege roles instead."
-echo "!!!"
-read -p "Grant 'roles/owner' to '${TF_SA_NAME}@${GCP_PROJECT_ID}.iam.gserviceaccount.com'? (PoC ONLY) [y/N]: " confirm_tf_sa_owner
-if [[ ! "$confirm_tf_sa_owner" =~ ^[Yy]$ ]]; then
-    echo "Aborting Terraform SA role grant."
-    # Consider deleting the SA if the role isn't granted? Maybe not for PoC.
+echo "The Terraform SA requires the following IAM roles:" 
+for role in "${TF_SA_ROLES[@]}"; do
+  echo "- ${role}"
+done
+read -p "Grant these roles to '${TF_SA_NAME}@${GCP_PROJECT_ID}.iam.gserviceaccount.com'? [y/N]: " confirm_tf_sa_roles
+if [[ ! "$confirm_tf_sa_roles" =~ ^[Yy]$ ]]; then
+    echo "Aborting Terraform SA role grants."
     exit 1
 fi
-echo "Granting roles/owner to Terraform SA..."
-# This command is additive, less critical to check beforehand if it already exists
-gcloud projects add-iam-policy-binding ${GCP_PROJECT_ID} \
-  --member="serviceAccount:${TF_SA_NAME}@${GCP_PROJECT_ID}.iam.gserviceaccount.com" \
-  --role="roles/owner" # !!! REPLACE with specific roles for Production !!!
+for role in "${TF_SA_ROLES[@]}"; do
+  echo "Granting ${role} to Terraform SA..."
+  gcloud projects add-iam-policy-binding ${GCP_PROJECT_ID} \
+    --member="serviceAccount:${TF_SA_NAME}@${GCP_PROJECT_ID}.iam.gserviceaccount.com" \
+    --role="${role}"
+done
 
 # --- Handle Terraform SA Key ---
 KEY_FILE_PATH="${SCRIPT_DIR}/terraform-key.json" # Define path
@@ -169,6 +184,11 @@ gcloud projects add-iam-policy-binding ${GCP_PROJECT_ID} \
   --role="roles/secretmanager.secretAccessor"
 
 # Note: roles/storage.objectAdmin will be granted per-resource via Terraform.
+
+echo "Granting Terraform SA permission to act as the WordPress Runtime SA..."
+gcloud iam service-accounts add-iam-policy-binding "${WP_RUNTIME_SA_NAME}@${GCP_PROJECT_ID}.iam.gserviceaccount.com" \
+  --member="serviceAccount:${TF_SA_NAME}@${GCP_PROJECT_ID}.iam.gserviceaccount.com" \
+  --role="roles/iam.serviceAccountUser"
 
 echo "Service Accounts created and base roles granted."
 echo "---"

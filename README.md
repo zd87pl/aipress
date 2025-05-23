@@ -39,6 +39,19 @@ This Proof-of-Concept (PoC) establishes the core infrastructure provisioning mec
 *   `gsutil` CLI installed (usually part of `gcloud`).
 *   Ensure your GCP project ID is correctly set in `scripts/poc_gcp_setup.sh`.
 
+### Minimal IAM Roles
+
+`poc_gcp_setup.sh` now grants a reduced set of IAM roles to the Terraform
+service account. These roles are sufficient for Terraform to manage the
+resources used in the PoC without giving full project ownership:
+
+* `roles/run.admin`
+* `roles/storage.admin`
+* `roles/secretmanager.admin`
+* `roles/cloudsql.admin`
+* `roles/artifactregistry.admin`
+* `roles/iam.serviceAccountUser` (on the WordPress runtime service account)
+
 **Setup & Deployment Workflow:**
 
 1.  **Bootstrap Shared Resources:**
