@@ -317,13 +317,16 @@ resource "google_cloud_run_v2_service" "wordpress" {
 
 } # End of google_cloud_run_v2_service resource
 
-# Allow unauthenticated access to the WordPress service (for PoC)
-resource "google_cloud_run_service_iam_binding" "wordpress_public_access" {
+
+# Grant the Cloud Run invoker role to specified IAM members. By default no
+# members are bound, meaning the service requires authentication and access must
+# be explicitly granted.
+resource "google_cloud_run_service_iam_member" "wordpress_invoker" {
+  for_each = toset(var.invoker_members)
+
   project  = google_cloud_run_v2_service.wordpress.project
   location = google_cloud_run_v2_service.wordpress.location
   service  = google_cloud_run_v2_service.wordpress.name
   role     = "roles/run.invoker"
-  members = [
-    "allUsers",
-  ]
-} # End of google_cloud_run_service_iam_binding resource
+  member   = each.key
+}

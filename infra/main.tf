@@ -38,5 +38,8 @@ module "tenant_wordpress_instance" {
   shared_sql_instance_name = var.shared_sql_instance_name
   wp_docker_image_url      = var.wp_docker_image_url # Passed via -var to root
 
+  # Cloud Run IAM members allowed to invoke the tenant service
+  invoker_members = var.wordpress_invoker_members
+
   # sql_password_secret_id - Module generates this
 }

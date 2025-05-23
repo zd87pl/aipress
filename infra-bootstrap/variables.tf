@@ -39,6 +39,14 @@ variable "shared_sql_instance_name" {
   default     = "aipress-poc-db-shared" # Default matches setup script
 }
 
+# Members allowed to invoke the Control Plane Cloud Run service. Leaving this
+# empty keeps the service private until explicit access is granted.
+variable "control_plane_invoker_members" {
+  description = "IAM members granted Cloud Run invoker on the control plane"
+  type        = list(string)
+  default     = []
+}
+
 variable "enable_apis" {
   description = "List of GCP APIs to enable for the project."
   type        = list(string)

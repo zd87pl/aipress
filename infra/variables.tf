@@ -68,3 +68,11 @@ variable "wp_runtime_sa_email" {
   type        = string
   default     = "dummy-sa@example.com" # Dummy default, always overridden
 }
+
+# List of members allowed to invoke tenant WordPress services. This is passed
+# through to the tenant_wordpress module to configure Cloud Run IAM bindings.
+variable "wordpress_invoker_members" {
+  description = "IAM members granted access to invoke tenant WordPress services"
+  type        = list(string)
+  default     = []
+}
