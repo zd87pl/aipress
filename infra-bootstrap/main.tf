@@ -30,15 +30,6 @@ resource "google_project_service" "apis" {
 
 # --- Control Plane Cloud Run Service ---
 
-# Data source for public access policy
-data "google_iam_policy" "control_plane_noauth" {
-  binding {
-    role = "roles/run.invoker"
-    members = [
-      "allUsers", # WARNING: Allows unauthenticated access for PoC
-    ]
-  }
-}
 
 resource "google_cloud_run_v2_service" "control_plane" {
   project  = var.gcp_project_id
@@ -97,13 +88,15 @@ resource "google_cloud_run_v2_service" "control_plane" {
   depends_on = [google_project_service.apis]
 }
 
-# Allow unauthenticated access to the Control Plane service (for PoC)
-resource "google_cloud_run_service_iam_binding" "control_plane_public_access" {
+# Grant the Cloud Run invoker role on the control plane service to specified
+# members. By default no bindings are created, keeping the service private until
+# access is explicitly granted.
+resource "google_cloud_run_service_iam_member" "control_plane_invoker" {
+  for_each = toset(var.control_plane_invoker_members)
+
   project  = google_cloud_run_v2_service.control_plane.project
   location = google_cloud_run_v2_service.control_plane.location
   service  = google_cloud_run_v2_service.control_plane.name
   role     = "roles/run.invoker"
-  members = [
-    "allUsers",
-  ]
+  member   = each.key
 }

@@ -58,7 +58,9 @@ This Proof-of-Concept (PoC) establishes the core infrastructure provisioning mec
         terraform apply \
           -var="gcp_project_id=YOUR_GCP_PROJECT_ID" \
           -var="wp_docker_image_url=YOUR_WP_IMAGE_URL" \
-          -var="control_plane_docker_image_url=YOUR_CP_IMAGE_URL" 
+          -var="control_plane_docker_image_url=YOUR_CP_IMAGE_URL"
+          # Optional: restrict who can invoke the control plane
+          -var='control_plane_invoker_members=["user:you@example.com"]'
         ```
         (Replace variables with your project ID and the image URLs output by the build scripts).
 5.  **Create a Tenant Site:**
@@ -69,6 +71,7 @@ This Proof-of-Concept (PoC) establishes the core infrastructure provisioning mec
         curl -X POST "{CONTROL_PLANE_URL}/poc/create-site/{your_tenant_id}"
         ```
     *   The Control Plane (running on Cloud Run) will use the configuration in `/infra` (copied into its image) and run `terraform apply` in the appropriate workspace to provision the tenant resources.
+    *   Access to each tenant's WordPress service is controlled via the `wordpress_invoker_members` variable. Pass a list of members when provisioning to restrict who can invoke the service.
 
 ## Project Structure
 

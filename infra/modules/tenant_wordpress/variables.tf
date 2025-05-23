@@ -35,4 +35,13 @@ variable "max_instances" {
   default     = 10 # Default, adjust as needed
 }
 
+# List of IAM members allowed to invoke the tenant's WordPress service. Leave
+# empty to restrict access until bindings are explicitly added (recommended for
+# production to avoid public exposure).
+variable "invoker_members" {
+  description = "IAM members granted the Cloud Run invoker role for this service"
+  type        = list(string)
+  default     = []
+}
+
 # Add other variables as needed, e.g., CPU/Memory limits, custom env vars later
