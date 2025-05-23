@@ -10,7 +10,7 @@ This Proof-of-Concept (PoC) establishes the core infrastructure provisioning mec
 
 (See [ARCHITECTURE.md](ARCHITECTURE.md) for details.)
 
-*   **Control Plane:** A FastAPI application deployed on Cloud Run (`aipress-control-plane`). Receives API requests (e.g., `/poc/create-site/{tenant_id}`) and uses Terraform within its container to manage tenant resources. Runs as the `terraform-sa` service account.
+*   **Control Plane:** A FastAPI application deployed on Cloud Run (`aipress-control-plane`). Receives API requests (e.g., `/poc/create-site/{tenant_id}`) and uses Terraform within its container to manage tenant resources. Runs as the `terraform-sa` service account. The service is private and requires authenticated callers (via IAM or Google IAP).
 *   **Tenant WordPress Runtime:** Deployed as a dedicated Cloud Run service (`aipress-tenant-{tenant_id}`) per tenant. Uses a custom Docker image based on the official `wordpress:fpm` image (Debian-based), adding Nginx. A custom entrypoint script manages setup (core files, permissions) and starts Nginx and PHP-FPM. Connects to a dedicated Cloud SQL database (via Cloud Run's native integration, including socket support) and uses a dedicated GCS bucket for media uploads (intended for use with a stateless media plugin like WP Offload Media). Includes an environment-variable driven `wp-config.php` template. Runs as the `wp-runtime-sa` service account.
 *   **Infrastructure as Code:**
     *   `infra-bootstrap/`: Terraform configuration to deploy the Control Plane Cloud Run service and enable project APIs. Applied manually once or via CI/CD.
@@ -63,12 +63,13 @@ This Proof-of-Concept (PoC) establishes the core infrastructure provisioning mec
         (Replace variables with your project ID and the image URLs output by the build scripts).
 5.  **Create a Tenant Site:**
     *   Find the URL of the deployed `aipress-control-plane` service in your GCP Cloud Run console (or Terraform outputs if configured).
-    *   Make a POST request to the `/poc/create-site/{tenant_id}` endpoint:
+    *   Make a POST request to the `/poc/create-site/{tenant_id}` endpoint using an authenticated token:
         ```bash
         # Replace {CONTROL_PLANE_URL} and {your_tenant_id}
-        curl -X POST "{CONTROL_PLANE_URL}/poc/create-site/{your_tenant_id}"
+        curl -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
+             -X POST "{CONTROL_PLANE_URL}/poc/create-site/{your_tenant_id}"
         ```
-    *   The Control Plane (running on Cloud Run) will use the configuration in `/infra` (copied into its image) and run `terraform apply` in the appropriate workspace to provision the tenant resources.
+    *   The Control Plane will use the configuration in `/infra` (copied into its image) and run `terraform apply` in the appropriate workspace to provision the tenant resources.
 
 ## Project Structure
 

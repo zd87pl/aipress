@@ -53,3 +53,9 @@ variable "enable_apis" {
     "cloudresourcemanager.googleapis.com"
   ]
 }
+
+variable "control_plane_invoker_members" {
+  description = "IAM members allowed to invoke the aipress-control-plane Cloud Run service."
+  type        = list(string)
+  default     = []
+}
