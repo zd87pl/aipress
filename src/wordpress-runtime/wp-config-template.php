@@ -1,6 +1,6 @@
 <?php
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
+ini_set('display_errors', 0);
+ini_set('display_startup_errors', 0);
 error_reporting(E_ALL);
 /**
  * The base configuration for WordPress
@@ -33,20 +33,10 @@ if (strpos($_db_host_env, '/cloudsql/') === 0) {
     define( 'DB_HOST', 'localhost' ); // Use localhost when socket is specified
     $_db_socket_path = $_db_host_env;
     ini_set('mysqli.default_socket', $_db_socket_path);
-    error_log("[WP Config] Detected Cloud SQL socket. DB_HOST set to 'localhost', mysqli.default_socket set to: " . $_db_socket_path);
 } else {
     // Assume it's a regular hostname/IP
     define( 'DB_HOST', $_db_host_env );
-    error_log("[WP Config] Using standard DB_HOST: " . DB_HOST);
 }
-
-// --- BEGIN DB SOCKET DEBUG ---
-error_log("WP DB DEBUG: DB_HOST constant = " . DB_HOST);
-if ($_db_socket_path) {
-    error_log("WP DB DEBUG: mysqli.default_socket = " . ini_get('mysqli.default_socket'));
-    error_log("WP DB DEBUG: Socket file '{$_db_socket_path}' exists? " . (file_exists($_db_socket_path) ? 'yes' : 'no'));
-}
-// --- END DB SOCKET DEBUG ---
 
 /** Database charset to use in creating database tables. */
 define( 'DB_CHARSET', get_env_var('WORDPRESS_DB_CHARSET', 'utf8mb4') );
@@ -124,9 +114,4 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /** Sets up WordPress vars and included files. */
-// --- BEGIN ENV DEBUG SNIPPET ---
-error_log("ENV DEBUG: WORDPRESS_DB_HOST=" . getenv('WORDPRESS_DB_HOST'));
-error_log("ENV DEBUG: WORDPRESS_DB_USER=" . getenv('WORDPRESS_DB_USER'));
-error_log("ENV DEBUG: WORDPRESS_DB_NAME=" . getenv('WORDPRESS_DB_NAME'));
-// --- END ENV DEBUG SNIPPET ---
 require_once ABSPATH . 'wp-settings.php';
