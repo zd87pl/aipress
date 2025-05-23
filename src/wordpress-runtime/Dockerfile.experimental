@@ -71,8 +71,6 @@ RUN mkdir -p /var/run /var/log/php-fpm && \
 # Copy custom wp-config template to a temporary location
 COPY src/wordpress-runtime/wp-config-template.php /tmp/wp-config-template.php
 
-# Copy test.php for PHP error/debug testing
-COPY src/wordpress-runtime/test.php /var/www/html/test.php
 
 # Build-time check: ensure /var/www/html contains WordPress files (should see index.php)
 RUN ls -lA /var/www/html

@@ -27,9 +27,8 @@ COPY nginx/nginx.conf /etc/nginx/nginx.conf
 COPY nginx/wordpress.conf /etc/nginx/conf.d/default.conf
 
 
-# Copy WordPress config template and test script
+# Copy WordPress config template
 COPY wp-config-template.php /wp-config-template.php
-COPY test.php /var/www/html/test.php
 
 # Copy the entrypoint script
 COPY docker-entrypoint.sh /docker-entrypoint.sh
