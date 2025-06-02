@@ -1,0 +1,60 @@
+# AIPress Staging Environment Configuration
+project:
+  id: "aipress-staging-{{ RANDOM_SUFFIX }}"  # Replace {{ RANDOM_SUFFIX }} with actual suffix
+  region: "us-central1"
+  billing_account: ""  # Add your billing account ID
+  organization_id: ""  # Add your organization ID if applicable
+
+environment:
+  name: "staging"
+  type: "staging"
+  description: "Staging environment for pre-production testing and validation"
+
+deployment:
+  strategy: "blue_green"
+  safety_checks: true
+  auto_approve: false
+  parallelism: 5
+  
+database:
+  shared_instances_per_region: 1
+  databases_per_instance: 50  # Moderate for staging
+  database_tier: "db-custom-2-8192"  # 2 vCPU, 8GB RAM
+  high_availability: true
+  deletion_protection: true
+  enable_read_replicas: true
+
+multi_project:
+  max_shard_projects: 10  # Moderate scale for staging
+  sites_per_shard: 25     # Medium shards
+
+meta_control_plane:
+  min_instances: 2
+  max_instances: 5
+  cpu: "2"
+  memory: "4Gi"
+
+monitoring:
+  enable_detailed_monitoring: true
+  log_level: "INFO"
+  enable_debug_endpoints: false
+
+security:
+  enable_public_access: true
+  require_ssl: true
+  enable_cloud_armor: true
+
+cost_optimization:
+  enable_committed_use_discounts: false
+  preemptible_instances: false
+  enable_autoscaling: true
+
+features:
+  enable_experimental_features: false
+  enable_performance_testing: true
+  enable_load_testing: true
+
+backup:
+  retention_days: 30
+  frequency: "daily"
+  cross_region_backup: true

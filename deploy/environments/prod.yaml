@@ -1,0 +1,60 @@
+# AIPress Production Environment Configuration
+project:
+  id: "aipress-prod-{{ RANDOM_SUFFIX }}"  # Replace {{ RANDOM_SUFFIX }} with actual suffix
+  region: "us-central1"
+  billing_account: ""  # Add your billing account ID
+  organization_id: ""  # Add your organization ID if applicable
+
+environment:
+  name: "production"
+  type: "production"
+  description: "Production environment for live customer workloads"
+
+deployment:
+  strategy: "canary"
+  safety_checks: true
+  auto_approve: false
+  parallelism: 3
+  
+database:
+  shared_instances_per_region: 5
+  databases_per_instance: 50  # Full scale
+  database_tier: "db-custom-16-65536"  # 16 vCPU, 64GB RAM
+  high_availability: true
+  deletion_protection: true
+  enable_read_replicas: true
+
+multi_project:
+  max_shard_projects: 1000  # Full scale
+  sites_per_shard: 50       # Production shards
+
+meta_control_plane:
+  min_instances: 3
+  max_instances: 10
+  cpu: "4"
+  memory: "8Gi"
+
+monitoring:
+  enable_detailed_monitoring: true
+  log_level: "WARN"
+  enable_debug_endpoints: false
+
+security:
+  enable_public_access: false
+  require_ssl: true
+  enable_cloud_armor: true
+
+cost_optimization:
+  enable_committed_use_discounts: true
+  preemptible_instances: false
+  enable_autoscaling: true
+
+features:
+  enable_experimental_features: false
+  enable_performance_testing: false
+  enable_load_testing: false
+
+backup:
+  retention_days: 90
+  frequency: "every_6_hours"
+  cross_region_backup: true

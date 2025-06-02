@@ -1,0 +1,60 @@
+# AIPress Development Environment Configuration
+project:
+  id: "aipress-dev-{{ RANDOM_SUFFIX }}"  # Replace {{ RANDOM_SUFFIX }} with actual suffix
+  region: "us-central1"
+  billing_account: ""  # Add your billing account ID
+  organization_id: ""  # Add your organization ID if applicable
+
+environment:
+  name: "development"
+  type: "development"
+  description: "Development environment for rapid iteration and testing"
+
+deployment:
+  strategy: "rolling"
+  safety_checks: false
+  auto_approve: true
+  parallelism: 10
+  
+database:
+  shared_instances_per_region: 1
+  databases_per_instance: 10  # Smaller for dev
+  database_tier: "db-f1-micro"  # Smallest tier for cost
+  high_availability: false
+  deletion_protection: false
+  enable_read_replicas: false
+
+multi_project:
+  max_shard_projects: 3  # Limited for dev
+  sites_per_shard: 10    # Smaller shards
+
+meta_control_plane:
+  min_instances: 1
+  max_instances: 3
+  cpu: "1"
+  memory: "2Gi"
+
+monitoring:
+  enable_detailed_monitoring: true
+  log_level: "DEBUG"
+  enable_debug_endpoints: true
+
+security:
+  enable_public_access: true  # For development access
+  require_ssl: false
+  enable_cloud_armor: false
+
+cost_optimization:
+  enable_committed_use_discounts: false
+  preemptible_instances: true
+  enable_autoscaling: true
+
+features:
+  enable_experimental_features: true
+  enable_performance_testing: true
+  enable_load_testing: true
+
+backup:
+  retention_days: 7
+  frequency: "daily"
+  cross_region_backup: false
