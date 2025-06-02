@@ -1,0 +1,7 @@
+# Required for Cloud Functions Framework
+functions-framework==3.*
+
+# Required for calling Google APIs
+google-cloud-monitoring==2.*
+google-auth==2.*
+requests==2.*

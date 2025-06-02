@@ -1,0 +1,10 @@
+# List of plugins to install and activate for new tenants
+# via the post-deployment Cloud Run Job.
+plugins:
+  - name: wp-offload-media-lite # Handles GCS integration
+    activate: true
+  # Add other desired default plugins here in the future
+  # - name: redis-cache
+  #   activate: true
+  # - name: jetpack
+  #   activate: false
