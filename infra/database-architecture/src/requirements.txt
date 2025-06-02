@@ -1,0 +1,22 @@
+# Requirements for AIPress Database Provisioner Cloud Function
+
+# Google Cloud SDK and APIs
+google-cloud-secret-manager==2.18.1
+google-cloud-sql==3.11.1
+google-cloud-pubsub==2.18.4
+google-cloud-spanner==3.40.1
+google-cloud-logging==3.8.0
+
+# Database connectivity
+mysql-connector-python==8.2.0
+PyMySQL==1.1.0
+
+# Utilities
+functions-framework==3.5.0
+flask==3.0.0
+requests==2.31.0
+pydantic==2.5.0
+
+# Development and testing
+pytest==7.4.3
+pytest-mock==3.12.0
