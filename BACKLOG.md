@@ -1,182 +1,421 @@
-# AIPress Platform Backlog
+# AIPress Platform Backlog - Updated for 50k Scale
 
-This backlog outlines the major phases, epics, and features required to build the AI-driven WordPress hosting platform.
+This backlog has been updated to align with the unified roadmap for scaling to 50,000+ WordPress sites. It addresses architectural changes required for the multi-project federation model and production readiness.
 
-## Phase 1: Foundational Setup
+**NOTE**: This backlog supersedes the previous version and aligns with `UNIFIED_ROADMAP.md` and `SCALING_TO_50K_SITES.md`.
 
-*Goal: Establish the core GCP environment, security baseline, and development infrastructure.*
+## Phase 0: Foundation Refactoring (Months 1-2) - CRITICAL
 
-*   **Epic: GCP Project & Networking**
-    *   Feature: Create dedicated GCP Project.
-    *   Feature: Set up VPC Network, Subnets, Firewall Rules (basic).
-    *   Feature: Configure Cloud DNS (if managing platform domain).
-*   **Epic: Identity & Access Management (IAM)**
-    *   Feature: Define core IAM roles (Platform Admin, Control Plane Service Account, Tenant Runtime Service Account base).
-    *   Feature: Set up initial user/group access.
-*   **Epic: CI/CD Pipeline**
-    *   Feature: Set up Git repository (e.g., GitHub, Cloud Source Repositories).
-    *   Feature: Implement basic CI pipeline (e.g., Cloud Build) for linting/testing (initially).
-    *   Feature: Implement basic CD pipeline skeleton for deploying control plane/chatbot backend.
-*   **Epic: Secrets Management**
-    *   Feature: Set up Google Secret Manager.
-    *   Feature: Define initial secret structure (API keys, DB credentials patterns).
+*Goal: Address architectural gaps that prevent scaling beyond 1,000 sites*
 
-## Phase 2: MVP Chatbot & Control Plane API
+### Epic: Multi-Project Architecture Foundation
+**Priority: CRITICAL** - Current single-project model won't scale
 
-*Goal: Build the user-facing chat interface, admin portal, core control plane API, authentication, and basic site creation flow using Gemini as the conversational engine.*
+*   **Feature: Project Hierarchy Design**
+    *   Design organization structure (`aipress-hosting`)
+    *   Define project naming conventions (`aipress-shard-001`)
+    *   Plan billing account hierarchy
+    *   Create project quota management strategy
 
-*   **Epic: Authentication & Authorization (RBAC)**
-    *   Feature: Choose and configure managed authentication provider (Firebase Auth recommended).
-    *   Feature: Implement user signup/login flows (Google, Apple, GitHub, Email Link/Passwordless) using provider SDK.
-    *   Feature: Define 'Tenant' and 'Admin' roles. Implement role assignment on first sign-up (default 'Tenant').
-    *   Feature: Implement role management UI (Admin Portal).
-    *   Feature: Utilize Custom Claims (if available) to embed roles in auth tokens.
-    *   Feature: Implement token verification middleware in Chatbot Backend and Control Plane API.
-    *   Feature: Implement endpoint-level authorization checks based on verified role and tenant ownership in both backends.
-*   **Epic: Chatbot Frontend (React + TypeScript + Tailwind)**
-    *   Feature: Set up React project using TypeScript and Tailwind CSS.
-    *   Feature: Implement Design System components (light, clean aesthetic inspired by Apple/Uber):
-        *   `Button.tsx`, `TextInput.tsx`, `Modal.tsx`, `ChatMessage.tsx`, `ChatLog.tsx`, `ChatInput.tsx`, `LogDisplay.tsx`, `DataTable.tsx`, `LoadingSpinner.tsx`.
-    *   Feature: Implement core chat interface using the design system components.
-    *   Feature: Integrate authentication provider SDK for login/signup/logout UI flows (`LoginButton` variants, user status display).
-    *   Feature: Implement API client to communicate with Chatbot Backend (sending messages, handling responses). Attach auth token to requests.
-*   **Epic: Chatbot Backend (FastAPI + Vertex AI)**
-    *   Feature: Set up FastAPI project, including Dockerfile.
-    *   Feature: Add dependencies: `google-cloud-aiplatform`, `google-auth`, `requests`.
-    *   Feature: Implement `/chat` endpoint to handle incoming user messages.
-    *   Feature: Integrate authentication token verification middleware.
-    *   Feature: Implement Gemini integration using Vertex AI SDK.
-    *   Feature: Develop robust prompt engineering strategy for Gemini:
-        *   Define Gemini's role and capabilities.
-        *   Include chat history, user context (tenant\_id).
-        *   Define structured "Action" commands (e.g., `CREATE_SITE`, `GET_LOGS`, `DELETE_SITE`).
-        *   Implement safety guidelines.
-    *   Feature: Implement logic to interpret Gemini's response (text vs. Action).
-    *   Feature: Implement action validation (permissions, parameters) based on authenticated user and recognized action.
-    *   Feature: Implement client logic to call Control Plane API for validated actions.
-    *   Feature: Implement logic to format Control Plane responses (or use Gemini) for user display.
-*   **Epic: Control Plane API (Enhancements for Chatbot & Admin)**
-    *   Feature: Enhance FastAPI service setup (authentication middleware, OpenAPI spec).
-    *   Feature: Implement API endpoints for user management (`/users`, `/users/{id}` - Admin only).
-    *   Feature: Implement API endpoints for tenant management/viewing (`/tenants`, `/tenants/{id}` - Admin/Tenant specific).
-    *   Feature: Implement API endpoints for operational data (`/tenants/{id}/logs`, `/tenants/{id}/billing` - Admin/Tenant specific, RBAC enforced).
-    *   Feature: Implement API endpoint for site deletion (`/tenants/{id}` DELETE - Admin/Tenant specific).
-    *   Feature: Refine database schema (Firestore/Cloud SQL) to store user roles and tenant associations.
-    *   Feature: Implement robust authorization logic within each endpoint based on verified token/role/ownership.
-    *   Feature: Define secure mechanism for storing/retrieving tenant-specific credentials needed for operations (e.g., log access keys managed via Secret Manager, linked in DB).
-*   **Epic: Control Plane Initial Configuration**
-    *   Feature: Define mechanism for providing target GCP Project ID to Control Plane (e.g., Env Var, Config File).
-    *   Feature: Ensure Control Plane service account has necessary permissions within the target project (including Billing API/BigQuery access, Secret Manager access).
-    *   Feature: **Securely configure platform's Cloudflare API credentials (or other DNS provider) for Control Plane.**
-*   **Epic: Billing Configuration**
-    *   Feature: Enable detailed GCP Billing Export to a BigQuery dataset within the platform project.
-    *   Feature: Define and **enforce mandatory labeling (`aipress-tenant-id`)** for all tenant-specific resources during provisioning.
-*   **Epic: Tenant Configuration Interface (Admin UI - React)**
-    *   Feature: Set up Admin Portal section within the React frontend (potentially separate route/entry point).
-    *   Feature: Implement Design System components specific to Admin Portal:
-        *   `AdminLayout.tsx`, `SidebarNav.tsx`, `UserTable.tsx`, `UserForm.tsx`, `TenantList.tsx`, `SecretInput.tsx`.
-    *   Feature: Implement UI views for User Management, Tenant Listing/Details, using the design system components.
-    *   Feature: Integrate Authentication provider SDK for Admin login. Ensure UI routes/components are protected based on 'Admin' role.
-    *   Feature: Connect Admin UI views to relevant Control Plane API endpoints (fetching users/tenants, managing roles, potentially managing tenant config/secrets).
-*   **Epic: Control Plane API (Tenant Env Var & Secure Config)**
-    *   Feature: Implement API endpoints for Admin to manage tenant-specific configuration/secrets (e.g., service account keys for log access), storing securely (e.g., Secret Manager integration).
+*   **Feature: Meta Control Plane**
+    *   Create new FastAPI service for meta-orchestration
+    *   Implement tenant-to-shard consistent hashing
+    *   Build project management APIs (`/projects`, `/shards`)
+    *   Create service discovery mechanism
+    *   Implement health checking across shards
 
-*   **(Moved DNS/CDN logic to later phase or integrate as needed for custom domains)**
-    *   ~~Feature: API endpoint/logic for adding/updating DNS records for custom domains.~~
-    *   Feature: API endpoint/logic for potentially configuring basic CDN settings via API.
+*   **Feature: Project Automation**
+    *   Automate GCP project creation via APIs
+    *   Set up cross-project networking (VPC peering)
+    *   Implement project-level IAM automation
+    *   Create project deletion/cleanup procedures
 
-## Phase 3: Tenant WordPress Runtime
+*   **Feature: Terraform Multi-Project Support**
+    *   Modify existing modules for multi-project
+    *   Implement state sharding strategy
+    *   Create project-specific Terraform workspaces
+    *   Build migration tools from single-project
 
-*Goal: Implement the actual WordPress hosting infrastructure components provisioned by the Control Plane.*
+### Epic: Database Architecture Overhaul
+**Priority: CRITICAL** - Current dedicated instances too expensive
 
-*   **Epic: WordPress Container Image**
-    *   Feature: Create Dockerfile with base OS, PHP, Nginx/Apache.
-    *   Feature: Install specific WordPress version.
-    *   Feature: Install and configure `gcsfuse`.
-    *   Feature: Implement entrypoint script for dynamic `wp-config.php` generation / GCS mount.
-    *   Feature: Integrate Memorystore (Redis) client/extensions.
-    *   Feature: Optimize image size and performance.
-*   **Epic: Resource Provisioning Logic (Control Plane - Single Project)**
-    *   Feature: Implement GCP API calls (Terraform or SDK) to create Cloud Run service per tenant within the configured project.
-    *   Feature: Implement GCP API calls to create Cloud SQL database (or DB within shared instance) within the configured project.
-    *   Feature: Implement GCP API calls to create GCS bucket/prefix per tenant within the configured project.
-    *   Feature: Implement secure injection of standard secrets (DB credentials, etc.) into Cloud Run via Secret Manager.
-    *   Feature: Implement **secure injection of tenant-specific *third-party* environment variables/secrets (from Admin UI) into the specific tenant's Cloud Run service**.
-    *   Feature: Implement provisioning of Memorystore namespace/instance within the configured project.
-    *   Feature: Implement basic Google Cloud CDN configuration for Cloud Run service.
-    *   Feature: **Integrate Control Plane logic to configure DNS (via platform API keys) when custom domains are used.**
-    *   Feature: Update tenant metadata DB upon successful provisioning.
-*   **Epic: Domain Management (MVP)**
-    *   Feature: Assign platform subdomain (`tenant-name.aipress.com`) via DNS (if applicable).
-    *   Feature: Provide DNS instructions for custom domains.
+*   **Feature: Shared Cloud SQL Implementation**
+    *   Design shared instance with database-per-tenant
+    *   Implement database provisioning automation
+    *   Create tenant isolation within shared instances
+    *   Build database migration tools
 
-## Phase 4: Operational Features (Chatbot SRE)**
+*   **Feature: Connection Pooling (ProxySQL)**
+    *   Deploy ProxySQL for connection management
+    *   Configure read/write split routing
+    *   Implement connection limits per tenant
+    *   Set up monitoring and alerting
 
-*Goal: Enable the chatbot to provide basic operational insights.*
+*   **Feature: Database Performance Optimization**
+    *   Configure read replicas per region
+    *   Implement query optimization monitoring
+    *   Set up slow query detection
+    *   Create database scaling automation
 
-*   **Epic: Logging Integration (RBAC)**
-    *   Feature: Configure Cloud Run/WordPress to send structured logs to Cloud Logging.
-    *   Feature: Chatbot Backend logic to query Cloud Logging, **filtering by logged-in tenant ID or admin-specified tenant ID based on role**.
-    *   Feature: Gemini prompting to understand log query requests, including target tenant for admins.
-*   **Epic: Metrics Integration (RBAC)**
-    *   Feature: Ensure Cloud Run/Cloud SQL metrics are sent to Cloud Monitoring.
-    *   Feature: Chatbot Backend logic to query Cloud Monitoring, **filtering by logged-in tenant ID or admin-specified tenant ID based on role**.
-    *   Feature: Gemini prompting to understand metrics requests, including target tenant for admins.
-*   **Epic: Cost Aggregation & Reporting**
-    *   Feature: Create backend process (Cloud Function/Run) to query BigQuery billing export data.
-    *   Feature: Implement BigQuery SQL query to aggregate costs per `aipress-tenant-id` label.
-    *   Feature: Store aggregated tenant cost data in Control Plane database (Firestore/Cloud SQL).
-    *   Feature: Schedule the aggregation process to run periodically (e.g., daily).
-    *   Feature: Control Plane API endpoint (`/tenants/{tenant_id}/billing`) to retrieve aggregated cost data.
-*   **Epic: Cost Integration (Chatbot - RBAC)**
-    *   Feature: Chatbot Backend logic to call the Control Plane billing API endpoint, **using logged-in tenant ID or admin-specified tenant ID based on role**.
-    *   Feature: Gemini prompting to understand billing inquiries, including target tenant for admins.
-*   **Epic: Basic Site Management**
-    *   Feature: Control Plane API endpoint for deleting a site (resource cleanup within the platform project).
-    *   Feature: Chatbot integration for site deletion requests.
+*   **Feature: Cost Optimization**
+    *   Migrate existing tenants to shared model
+    *   Implement database rightsizing
+    *   Set up cost monitoring per tenant
+    *   Plan committed use discounts
 
-## Phase 5: Enhancements & Scalability
+### Epic: Backup & Recovery System
+**Priority: HIGH** - Currently missing critical production feature
 
-*Goal: Improve performance, security, cost-efficiency, and add advanced features.*
+*   **Feature: Automated Backup Architecture**
+    *   Implement Cloud Workflows orchestrator
+    *   Create database export automation
+    *   Set up file sync from GCS to backup storage
+    *   Build backup metadata tracking
 
-*   **Epic: Advanced Caching**
-    *   Feature: Implement tiered caching strategies.
-    *   Feature: Explore edge compute options.
-*   **Epic: Security Hardening**
-    *   Feature: Implement Cloud Armor WAF rules.
-    *   Feature: Explore runtime security monitoring (Falco/SCC).
-    *   Feature: Implement automated vulnerability scanning.
-*   **Epic: Performance Optimization**
-    *   **Feature: Cloud Run Right-Sizing Analysis:** Analyze tenant resource usage (CPU/Memory) to potentially use fractional vCPUs or smaller memory allocations for lower-tier/lower-traffic sites.
-    *   **Feature: Cloud Run Concurrency Tuning:** Experiment with and document optimal concurrency settings based on typical WordPress workloads.
-    *   **Feature: Implement Tiered `min-instances` Option:** Offer a higher performance tier with `min-instances=1` for reduced cold starts.
-    *   **Feature: Evaluate ARM Architecture for Cloud Run:** Investigate building and deploying ARM64-based `wordpress-runtime` images for potential price/performance benefits.
-    *   **Feature: Profile & Optimize `docker-entrypoint.sh`:** Reduce container startup latency by optimizing the entrypoint script.
-    *   **Feature: Implement Full Page Caching Strategy:** Integrate and configure a robust WordPress page caching plugin (e.g., WP Super Cache, W3 Total Cache).
-    *   **Feature: GCS Signed URLs for Media:** Ensure WP Offload Media (or equivalent) is configured to use Signed URLs for direct client uploads/downloads.
-    *   **(If using `gcsfuse`): Feature: `gcsfuse` Performance Tuning:** Optimize mount options (`stat-cache-ttl`, `type-cache-ttl`, `--implicit-dirs`) if `gcsfuse` is used for themes/plugins.
-    *   **Feature: Implement Cloud SQL Read Replicas Option:** Offer read replicas as a feature for high-traffic/read-heavy sites.
-    *   **Feature: Provide Cloud SQL Query Insights Guidance:** Develop documentation or tooling to help tenants identify slow queries.
-    *   Feature: Implement proactive asset optimization (existing).
-    *   Feature: Advanced database tuning/read replicas (covered above, refined).
-*   **Epic: Cost Optimization**
-    *   **Feature: Analyze & Implement Committed Use Discounts (CUDs):** Regularly review sustained usage and purchase CUDs for Cloud Run, Cloud SQL, and Memorystore baseline needs.
-    *   **Feature: Evaluate Shared Cloud SQL Instance Model:** Investigate using separate databases within shared Cloud SQL instances as a potential lower-cost tier.
-    *   **Feature: Evaluate Shared Memorystore Instance Model:** Investigate using Redis namespaces within shared Memorystore instances as a potential lower-cost tier.
-    *   **Feature: Implement GCS Lifecycle Policies:** Define and apply rules for transitioning objects to cheaper storage classes or deleting old backups/data.
-    *   **Feature: Evaluate GCP Network Service Tiers:** Assess if Standard Tier networking is suitable for certain use cases or tenant tiers instead of Premium Tier.
-    *   Feature: Implement smart Cloud Run/SQL tiering (existing, could be refined by above).
-    *   Feature: Implement GCS lifecycle rules (covered above, refined).
-*   **Epic: Advanced Caching & CDN**
-    *   **Feature: Implement Tiered Caching Strategies:** Configure CDN with multiple cache layers if beneficial.
-    *   **Feature: Leverage Advanced CDN Features:** Implement edge image optimization, advanced routing (e.g., Cloudflare Argo).
-    *   **Feature: Explore Edge Compute Options:** Investigate Cloudflare Workers or similar for edge-side caching or logic.
-*   **Epic: Feature Enhancements**
-    *   Feature: Automated custom domain validation/setup.
-    *   Feature: Backup & Restore functionality (via Control Plane/Chatbot).
-    *   Feature: Staging environments.
-    *   Feature: Pre-installed plugin/theme bundles.
-*   **(New Epic): Database Enhancements**
-    *   **Feature: Implement Robust Connection Pooling:** Ensure efficient PHP-FPM and Cloud SQL Auth Proxy connection handling.
-    *   **Feature: Monitor & Alert on DB Connection Limits.**
-    *   **Feature: Explore Serverless Database Options:** Keep Cloud SQL Serverless v2 / AlloyDB Omni under consideration for future needs.
+*   **Feature: Multi-Region Backup Storage**
+    *   Configure cross-region replication
+    *   Implement backup encryption
+    *   Set up lifecycle policies for cost optimization
+    *   Create backup verification system
+
+*   **Feature: Restore Automation**
+    *   Build point-in-time recovery
+    *   Create full site restore procedures
+    *   Implement restore testing automation
+    *   Build disaster recovery playbooks
+
+## Phase 1: Production Readiness (Months 3-4)
+
+*Goal: Complete core features for production deployment*
+
+### Epic: Security & Compliance Framework
+**Priority: HIGH** - Required for production
+
+*   **Feature: Authentication & RBAC Complete**
+    *   Finish chatbot action implementations
+    *   Complete admin portal authentication
+    *   Implement role-based access controls
+    *   Create user management APIs
+
+*   **Feature: Cloud Armor Integration**
+    *   Deploy WAF rules for WordPress protection
+    *   Implement DDoS protection
+    *   Create custom security rules
+    *   Set up geo-blocking capabilities
+
+*   **Feature: Secret Management & Rotation**
+    *   Implement automated secret rotation
+    *   Create tenant-specific secret isolation
+    *   Build secret injection for containers
+    *   Set up secret access auditing
+
+*   **Feature: Audit Logging**
+    *   Implement comprehensive audit trails
+    *   Create log aggregation across projects
+    *   Set up security event monitoring
+    *   Build compliance reporting
+
+### Epic: WordPress-as-Code Implementation
+**Priority: HIGH** - Core differentiator
+
+*   **Feature: Git Sync Service**
+    *   Create service to monitor tenant repositories
+    *   Implement webhook handling for Git events
+    *   Build file sync to GCS/containers
+    *   Create conflict resolution mechanisms
+
+*   **Feature: Cloud Build CI/CD Pipeline**
+    *   Create WordPress container build pipeline
+    *   Implement automated testing framework
+    *   Set up deployment automation
+    *   Build rollback capabilities
+
+*   **Feature: Tenant YAML Schema**
+    *   Define comprehensive tenant configuration
+    *   Implement schema validation
+    *   Create migration tools for existing tenants
+    *   Build configuration versioning
+
+*   **Feature: Environment Management**
+    *   Implement staging environments
+    *   Create environment promotion workflows
+    *   Build configuration management
+    *   Set up environment isolation
+
+### Epic: Operational Excellence
+**Priority: HIGH** - Required for scale
+
+*   **Feature: Logging Integration**
+    *   Configure structured logging across all services
+    *   Implement log aggregation in BigQuery
+    *   Create tenant-specific log filtering
+    *   Build log-based alerting
+
+*   **Feature: Metrics & Monitoring**
+    *   Set up cross-project metric collection
+    *   Create tenant-specific dashboards
+    *   Implement SLA monitoring
+    *   Build capacity planning tools
+
+*   **Feature: Cost Tracking & Optimization**
+    *   Implement detailed cost allocation
+    *   Create per-tenant billing reports
+    *   Set up cost optimization automation
+    *   Build budget alerting
+
+## Phase 2: Scale to 1,000 Sites (Months 5-6)
+
+*Goal: Prove federation model with 20 project shards*
+
+### Epic: Federation Implementation
+**Priority: HIGH** - Proof of concept for scaling
+
+*   **Feature: First 20 Project Shards**
+    *   Deploy initial project federation
+    *   Implement automated project management
+    *   Set up cross-project networking
+    *   Create inter-project communication
+
+*   **Feature: Service Discovery & Routing**
+    *   Implement service registry
+    *   Create dynamic routing tables
+    *   Set up health checking
+    *   Build failover mechanisms
+
+*   **Feature: Shared Services Deployment**
+    *   Deploy Cloud Spanner for global metadata
+    *   Set up BigQuery for analytics
+    *   Create shared monitoring infrastructure
+    *   Implement global CDN configuration
+
+### Epic: Performance Optimization
+**Priority: MEDIUM** - Optimization for better user experience
+
+*   **Feature: Multi-Layer Caching**
+    *   Implement Redis object caching
+    *   Configure Cloud CDN optimization
+    *   Set up browser caching policies
+    *   Create cache invalidation strategies
+
+*   **Feature: Media Processing Pipeline**
+    *   Implement direct-to-GCS uploads
+    *   Create image optimization automation
+    *   Set up video processing
+    *   Build media CDN integration
+
+*   **Feature: Database Optimization**
+    *   Implement query optimization
+    *   Set up read replica routing
+    *   Create index optimization
+    *   Build performance monitoring
+
+## Phase 3: Scale to 10,000 Sites (Months 7-9)
+
+*Goal: Validate architecture at medium scale with 200 projects*
+
+### Epic: Expanded Federation
+**Priority: HIGH** - Scale validation
+
+*   **Feature: 200 Project Shards**
+    *   Scale to 200 project shards
+    *   Implement advanced routing
+    *   Set up regional distribution
+    *   Create global load balancing
+
+*   **Feature: Sharded Control Planes**
+    *   Deploy multiple control plane instances
+    *   Implement control plane load balancing
+    *   Create control plane failover
+    *   Set up cross-shard coordination
+
+*   **Feature: Multi-Region Deployment**
+    *   Deploy to 3+ regions globally
+    *   Implement region-specific routing
+    *   Set up cross-region replication
+    *   Create disaster recovery procedures
+
+### Epic: Advanced Features
+**Priority: MEDIUM** - Competitive advantages
+
+*   **Feature: AI-Driven Optimization**
+    *   Implement predictive scaling
+    *   Create performance optimization AI
+    *   Set up cost optimization automation
+    *   Build capacity planning AI
+
+*   **Feature: Advanced Security**
+    *   Implement runtime security monitoring
+    *   Create threat detection
+    *   Set up automated response
+    *   Build security analytics
+
+*   **Feature: Plugin Compatibility Framework**
+    *   Create plugin testing automation
+    *   Build compatibility database
+    *   Implement alternative solutions
+    *   Create plugin marketplace
+
+### Epic: Enterprise Features
+**Priority: LOW** - Future revenue streams
+
+*   **Feature: White-Label Capabilities**
+    *   Create branded hosting options
+    *   Implement custom domains
+    *   Set up partner APIs
+    *   Build reseller programs
+
+*   **Feature: Advanced Compliance**
+    *   Implement GDPR compliance
+    *   Create data residency controls
+    *   Set up compliance reporting
+    *   Build audit automation
+
+## Phase 4: Scale to 50,000 Sites (Months 10-12)
+
+*Goal: Full production scale with 1,000 projects*
+
+### Epic: Complete Infrastructure
+**Priority: HIGH** - Full scale deployment
+
+*   **Feature: 1,000 Project Shards**
+    *   Complete project federation
+    *   Implement global coordination
+    *   Set up automated scaling
+    *   Create self-healing systems
+
+*   **Feature: Global Presence**
+    *   Deploy to all major regions
+    *   Implement edge computing
+    *   Set up global anycast
+    *   Create regional optimization
+
+*   **Feature: Advanced Automation**
+    *   Implement full automation stack
+    *   Create predictive maintenance
+    *   Set up automated optimization
+    *   Build self-healing systems
+
+### Epic: Market Launch
+**Priority: HIGH** - Business objectives
+
+*   **Feature: Tiered Pricing Model**
+    *   Implement Bronze/Silver/Gold tiers
+    *   Create automated billing
+    *   Set up usage tracking
+    *   Build pricing optimization
+
+*   **Feature: Customer Onboarding**
+    *   Create automated onboarding
+    *   Build migration tools
+    *   Set up customer success
+    *   Implement support automation
+
+*   **Feature: Market Integration**
+    *   Create marketplace presence
+    *   Build partner integrations
+    *   Set up marketing automation
+    *   Implement analytics tracking
+
+## Technical Debt & Infrastructure
+
+### Epic: WordPress Compatibility (Ongoing)
+**Priority: HIGH** - Critical for WordPress hosting
+
+*   **Feature: Stateless WordPress Optimization**
+    *   Optimize WordPress for stateless operation
+    *   Create session handling improvements
+    *   Implement transient optimization
+    *   Build file upload improvements
+
+*   **Feature: Plugin Ecosystem Management**
+    *   Create plugin compatibility testing
+    *   Build alternative implementations
+    *   Set up plugin security scanning
+    *   Implement plugin update automation
+
+*   **Feature: Theme Compatibility**
+    *   Test popular themes for compatibility
+    *   Create theme optimization tools
+    *   Build theme security scanning
+    *   Implement theme update automation
+
+### Epic: Platform Reliability (Ongoing)
+**Priority: HIGH** - Production stability
+
+*   **Feature: Monitoring & Alerting**
+    *   Comprehensive health monitoring
+    *   Proactive alerting systems
+    *   Performance analytics
+    *   Capacity planning automation
+
+*   **Feature: Disaster Recovery**
+    *   Multi-region backup strategies
+    *   Automated failover procedures
+    *   Recovery time optimization
+    *   Business continuity planning
+
+*   **Feature: Security Hardening**
+    *   Regular security assessments
+    *   Vulnerability management
+    *   Incident response procedures
+    *   Compliance maintenance
+
+## Priority Classification
+
+### CRITICAL (Must Complete for Phase 0)
+- Multi-project architecture foundation
+- Database architecture overhaul
+- Meta control plane implementation
+- Basic backup system
+
+### HIGH (Required for Production)
+- Security framework completion
+- WordPress-as-Code implementation
+- Operational monitoring
+- Performance optimization
+
+### MEDIUM (Important for Scale)
+- Advanced caching
+- Media pipeline
+- AI-driven optimization
+- Enterprise features
+
+### LOW (Future Enhancements)
+- White-label capabilities
+- Advanced compliance
+- Marketplace integrations
+- Partner APIs
+
+## Success Metrics by Phase
+
+### Phase 0 Success Criteria
+- [ ] Meta control plane operational
+- [ ] 10 project shards deployed
+- [ ] Shared database model working
+- [ ] Basic backup system functional
+
+### Phase 1 Success Criteria
+- [ ] Security framework complete
+- [ ] GitOps workflow operational
+- [ ] 99.9% uptime achieved
+- [ ] Cost per site <$5/month
+
+### Phase 2 Success Criteria
+- [ ] 1,000 sites across 20 projects
+- [ ] <100ms response time globally
+- [ ] Automated scaling operational
+- [ ] Backup/restore validated
+
+### Phase 3 Success Criteria
+- [ ] 10,000 sites across 200 projects
+- [ ] Multi-region deployment
+- [ ] 99.95% uptime
+- [ ] Cost per site <$3/month
+
+### Phase 4 Success Criteria
+- [ ] 50,000 sites across 1,000 projects
+- [ ] Global presence established
+- [ ] 99.99% uptime for Gold tier
+- [ ] Cost per site <$2.64/month
+
+This updated backlog provides a clear path from the current PoC to a production-ready platform capable of hosting 50,000+ WordPress sites while maintaining coherence with the overall architectural vision.
