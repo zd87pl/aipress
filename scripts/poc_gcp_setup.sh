@@ -22,7 +22,7 @@
 # - Permissions to create Service Accounts, enable APIs, create Cloud SQL, GCS, Secret Manager secrets, Artifact Registry.
 
 # --- Configuration ---
-export GCP_PROJECT_ID="wp-engine-ziggy" # !!! REPLACE with your actual Project ID !!!
+export GCP_PROJECT_ID="aipress-project" # !!! REPLACE with your actual Project ID !!!
 export GCP_REGION="us-central1"            # !!! REPLACE with your desired region !!!
 export TF_SA_NAME="terraform-sa"
 export WP_RUNTIME_SA_NAME="wp-runtime-sa"

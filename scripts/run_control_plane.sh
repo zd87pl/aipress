@@ -3,7 +3,7 @@ set -e
 
 # --- Configuration (Should match poc_gcp_setup.sh) ---
 # Source these from a common file or ensure they are set correctly here
-GCP_PROJECT_ID="${GCP_PROJECT_ID:-wp-engine-ziggy}" # Default if not set externally
+GCP_PROJECT_ID="${GCP_PROJECT_ID:-aipress-project}" # Default if not set externally
 GCP_REGION="${GCP_REGION:-us-central1}"            # Default if not set externally
 SHARED_SQL_INSTANCE_NAME="${SHARED_SQL_INSTANCE_NAME:-aipress-poc-db-shared}" # Default if not set externally
 WP_RUNTIME_SA_NAME="${WP_RUNTIME_SA_NAME:-wp-runtime-sa}"       # Default if not set externally

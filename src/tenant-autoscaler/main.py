@@ -11,7 +11,7 @@ from google.cloud import monitoring_v3
 import base64 # Needed if using PubSub trigger data
 
 # --- Configuration ---
-GCP_PROJECT_ID = os.getenv("GCP_PROJECT_ID", "wp-engine-ziggy")
+GCP_PROJECT_ID = os.getenv("GCP_PROJECT_ID", "aipress-project")
 GCP_REGION = os.getenv("GCP_REGION", "us-central1") # Region where Cloud Run services are
 # Construct Control Plane URL robustly from Cloud Run env vars if available
 _cp_url_env = os.getenv("CONTROL_PLANE_URL")

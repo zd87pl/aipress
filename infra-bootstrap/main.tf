@@ -7,7 +7,7 @@ terraform {
   }
   # Optional: Configure backend for this bootstrap config if desired
   # backend "gcs" {
-  #   bucket  = "aipress-tf-state-wp-engine-ziggy" # Same bucket as main infra
+  #   bucket  = "aipress-tf-state-aipress-project" # Same bucket as main infra
   #   prefix  = "infra-bootstrap" # Separate prefix
   # }
 }

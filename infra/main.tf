@@ -11,7 +11,7 @@ terraform {
   }
   # Configure Terraform backend using GCS bucket created by setup script
   backend "gcs" {
-    bucket  = "aipress-tf-state-wp-engine-ziggy" # !!! UPDATE MANUALLY if project ID changes from setup script !!!
+    bucket  = "aipress-tf-state-aipress-project" # !!! UPDATE MANUALLY if project ID changes from setup script !!!
     prefix  = "infra/poc" # Tenants will use workspaces within this prefix
   }
 }

@@ -3,7 +3,7 @@ set -e # Exit immediately if a command exits with a non-zero status.
 
 # --- Configuration (Should match poc_gcp_setup.sh) ---
 # Source these from a common file or ensure they are set correctly here
-GCP_PROJECT_ID="${GCP_PROJECT_ID:-wp-engine-ziggy}" # Default if not set externally
+GCP_PROJECT_ID="${GCP_PROJECT_ID:-aipress-project}" # Default if not set externally
 GCP_REGION="${GCP_REGION:-us-central1}"            # Default if not set externally
 AR_REPO_NAME="${AR_REPO_NAME:-aipress-images}"       # Default if not set externally
 IMAGE_NAME="wordpress-runtime"
