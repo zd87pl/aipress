@@ -2,7 +2,7 @@ import http from 'k6/http';
 import { sleep, check } from 'k6';
 
 // --- Test Configuration ---
-const TARGET_URL = 'https://aipress-tenant-test777-382681853908.us-central1.run.app/'; // Updated for test777
+const TARGET_URL = 'INPUT_HOSTNAME_HERE'; // Updated for test777
 const VIRTUAL_USERS = 25; // Testing with 25 VUs
 const DURATION = '30s';   // How long to run the test
 
