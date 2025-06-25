@@ -96,13 +96,3 @@ AIPress is a scalable, multi-tenant WordPress hosting platform built on Google C
 - See [Security Review Context](docs/EXECUTIVE_SUMMARY.md) for more details.
 
 ---
-
-## Contributing
-
-Contributions are welcome! Please see the [BACKLOG.md](docs/BACKLOG.md) and [UNIFIED_ROADMAP.md](docs/UNIFIED_ROADMAP.md) for open tasks and future plans.
-
----
-
-## License
-
-[MIT](LICENSE) (or your project's license)
